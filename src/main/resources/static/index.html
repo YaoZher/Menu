@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f5ef">
+  <title>一方菜单 · 今天，吃点好的。</title>
+  <link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/style.css">
+  <script type="module" src="/assets/menu.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#menu">跳到菜单</a>
+  <header class="site-header wrap">
+    <a class="brand" href="/" aria-label="一方菜单首页"><img src="/assets/mark.svg" width="38" height="38" alt=""><span>一方菜单<small>GOOD FOOD, GOOD DAYS</small></span></a>
+    <a class="subtle-link" href="/admin"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#lock"/></svg>审核工作台<span aria-hidden="true">↗</span></a>
+  </header>
+  <main>
+    <section class="hero wrap" aria-labelledby="hero-title">
+      <div class="hero-copy"><div class="eyebrow"><span class="tiny-dot"></span>一日三餐，好好吃饭</div><h1 id="hero-title">今天，<br>吃点<span class="accent-word">好的。</span></h1><p class="hero-description">把想吃的、拿手的，留在这一方菜单。<br>一起添道菜，让每一餐都有新期待。</p><button class="button primary" id="hero-add"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#plus"/></svg>添一道菜<span class="button-arrow" aria-hidden="true">↗</span></button><p class="hero-note">无需登录 · 审核通过后展示</p></div>
+      <div class="hero-art" aria-hidden="true"><div class="art-orbit"></div><span class="art-caption">A LITTLE TASTE OF EVERYDAY</span><img class="table-art" src="/assets/table.svg" alt=""><div class="art-stamp">好好<br>吃饭<span>EVERY DAY</span></div><span class="art-bottom">一方小天地，几味好日常。</span></div>
+    </section>
+    <section class="menu-section wrap" id="menu" aria-labelledby="menu-title">
+      <div class="section-heading"><div><span class="eyebrow muted">THE SHARED MENU</span><h2 id="menu-title">我们的菜单<span class="count-tag" id="menu-count">—</span></h2></div><p class="section-description">好味道，值得一起分享。</p></div>
+      <div class="menu-toolbar"><div class="filter-tabs" role="group" aria-label="筛选菜单"><button class="filter-button active" data-filter="all" aria-pressed="true">全部菜品</button><button class="filter-button" data-filter="image" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#image"/></svg>有图片</button><button class="filter-button" data-filter="video" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#play"/></svg>有视频</button></div><label class="search-field"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#search"/></svg><input type="search" id="menu-search" placeholder="找一道想吃的菜…" aria-label="搜索菜名或备注" maxlength="100"></label></div>
+      <div id="menu-content" aria-live="polite" aria-busy="true"><div class="loading-state"><span class="spinner"></span><p>正在准备菜单…</p></div></div>
+      <div class="menu-footnote"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#leaf"/></svg><span>每一份心意都会被认真对待。新增、修改和删除，经审核后更新到菜单。</span></div>
+    </section>
+  </main>
+  <footer class="site-footer wrap"><span>一方菜单<span class="footer-divider">/</span>把日子过成喜欢的味道。</span><span>MADE FOR EVERYDAY MOMENTS</span></footer>
+
+  <dialog id="dish-dialog" class="dialog dish-dialog" aria-labelledby="dish-dialog-title"><form id="dish-form" novalidate><div class="dialog-header"><div><div class="eyebrow muted">SHARE SOMETHING DELICIOUS</div><h2 id="dish-dialog-title">添一道菜</h2></div><button type="button" class="icon-button" data-close="dish-dialog" aria-label="关闭"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#close"/></svg></button></div><p class="dialog-intro" id="dish-dialog-intro">一道家常味，也值得拥有姓名。提交后由管理员审核。</p><div class="form-stack"><div class="field"><label for="dish-name">菜名 <span class="required">必填</span></label><input id="dish-name" name="name" maxlength="80" placeholder="例如：番茄炒蛋" required autocomplete="off"></div><div class="field"><label for="dish-image">菜品图片 <span class="optional">选填</span></label><label class="upload-zone" id="upload-zone" for="dish-image"><span id="upload-prompt"><svg class="upload-icon" aria-hidden="true"><use href="/assets/icons.svg#image"/></svg><strong>给好味道拍张照</strong><span>点击选择 JPG / PNG 图片，最大 5 MB</span></span><img id="image-preview" alt="待提交的菜品图片" hidden><input type="file" id="dish-image" name="image" accept="image/png,image/jpeg" class="file-input"></label><div class="image-controls" id="image-controls" hidden><span id="image-caption">已选择图片</span><button type="button" class="text-button danger-text" id="remove-image">移除图片</button></div></div><div class="field"><label for="dish-video">视频链接 <span class="optional">选填</span></label><input id="dish-video" name="videoUrl" type="url" maxlength="2048" placeholder="https://…"><small>可以分享这道菜的做法，支持 http / https 链接。</small></div><div class="field"><label for="dish-notes">备注 <span class="optional">选填</span><span class="character-count" id="notes-count">0 / 2000</span></label><textarea id="dish-notes" name="notes" rows="3" maxlength="2000" placeholder="关于口味、做法，或想说的小故事…"></textarea></div></div><p id="dish-error" class="form-error" role="alert" hidden></p><div class="dialog-footer"><span class="submit-hint"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#clock"/></svg>审核后更新到菜单</span><div class="button-row"><button class="button secondary" type="button" data-close="dish-dialog">取消</button><button class="button primary" id="dish-submit" type="submit">提交审核<span aria-hidden="true">↗</span></button></div></div></form></dialog>
+
+  <dialog id="delete-dialog" class="dialog small-dialog" aria-labelledby="delete-title"><form id="delete-form"><div class="dialog-header"><span class="dialog-symbol"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#trash"/></svg></span><button type="button" class="icon-button" data-close="delete-dialog" aria-label="关闭"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#close"/></svg></button></div><h2 id="delete-title">提交删除申请？</h2><p class="dialog-intro">你希望从菜单中移除「<strong id="delete-dish-name"></strong>」。审核通过前，这道菜仍会保留在菜单中。</p><p class="form-error" id="delete-error" role="alert" hidden></p><div class="dialog-footer"><button type="button" class="button secondary" data-close="delete-dialog">再想想</button><button type="submit" id="delete-submit" class="button danger">提交删除申请</button></div></form></dialog>
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>

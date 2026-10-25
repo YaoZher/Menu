@@ -1,0 +1,8 @@
+/target/
+/data/
+/.env
+/.idea/
+*.iml
+*.log
+hs_err_*
+/output/
