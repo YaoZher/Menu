@@ -1,4 +1,4 @@
-import { $, element, icon, api, writeApi, safeVideoUrl, safeImageUrl, dateText, toast, showError, loading, emptyState, configureDialogs, setDialogBusy } from './common.js';
+import { $, element, icon, api, writeApi, safeVideoUrl, safeImageUrl, toast, showError, loading, emptyState, configureDialogs, setDialogBusy } from './common.js';
 
 let dishes = [];
 let activeFilter = 'all';
@@ -17,10 +17,10 @@ const dishError = $('#dish-error');
 configureDialogs();
 
 function imageFallback(cover) {
-  cover.replaceChildren(icon('bowl', 'bowl-icon'), element('span', '', '日常里的好味道'));
+  cover.replaceChildren(icon('bowl', 'bowl-icon'));
 }
 
-function makeCard(dish, index) {
+function makeCard(dish) {
   const card = element('article', 'dish-card');
   const cover = element('div', 'dish-cover');
   const imageUrl = safeImageUrl(dish.imageUrl);
@@ -30,28 +30,26 @@ function makeCard(dish, index) {
     image.addEventListener('error', () => imageFallback(cover), { once: true });
     cover.append(image);
   } else imageFallback(cover);
-  cover.append(element('div', 'card-number', `NO. ${String(index + 1).padStart(2, '0')}`));
   const body = element('div', 'dish-body');
   body.append(element('h3', '', dish.name));
-  body.append(element('p', `dish-notes${dish.notes ? '' : ' no-notes'}`, dish.notes || '简单的名字，也藏着好味道。'));
+  if (dish.notes) body.append(element('p', 'dish-notes', dish.notes));
   const meta = element('div', 'dish-meta');
   const video = safeVideoUrl(dish.videoUrl);
   if (video) {
     const link = element('a', 'video-link');
     link.href = video; link.target = '_blank'; link.rel = 'noopener noreferrer';
     link.setAttribute('aria-label', `观看${dish.name}的视频（新窗口打开）`);
-    link.append(icon('play'), element('span', '', '看看做法 ↗'));
+    link.append(icon('play'), element('span', '', '视频'));
     meta.append(link);
-  } else meta.append(element('span'));
-  meta.append(element('span', 'dish-date', dateText(dish.updatedAt)));
-  body.append(meta);
+    body.append(meta);
+  }
   const actions = element('div', 'card-actions');
-  const edit = element('button', 'text-button');
-  edit.type = 'button'; edit.append(icon('edit'), element('span', '', '修改'));
+  const edit = element('button', 'icon-button');
+  edit.type = 'button'; edit.append(icon('edit')); edit.title = '修改';
   edit.setAttribute('aria-label', `申请修改${dish.name}`);
   edit.addEventListener('click', () => openDish(dish));
-  const remove = element('button', 'text-button');
-  remove.type = 'button'; remove.append(icon('trash'), element('span', '', '删除'));
+  const remove = element('button', 'icon-button danger-text');
+  remove.type = 'button'; remove.append(icon('trash')); remove.title = '删除';
   remove.setAttribute('aria-label', `申请删除${dish.name}`);
   remove.addEventListener('click', () => openDelete(dish));
   actions.append(edit, remove); card.append(cover, body, actions);
@@ -64,27 +62,27 @@ function renderMenu() {
   const query = $('#menu-search').value.trim().toLocaleLowerCase('zh-CN');
   const visible = dishes.filter(dish => (!query || `${dish.name} ${dish.notes || ''}`.toLocaleLowerCase('zh-CN').includes(query)) && (activeFilter === 'all' || activeFilter === 'image' && dish.imageUrl || activeFilter === 'video' && dish.videoUrl));
   if (!dishes.length) {
-    content.replaceChildren(emptyState({ title: '第一道好味道，等你来分享', message: '菜单还是一张白纸。添一道你喜欢的菜，让今天的美味从这里开始。', actionText: '＋ 添上第一道菜', action: () => openDish(), index: 'THE FIRST DISH' }));
+    content.replaceChildren(emptyState({ title: '暂无菜品' }));
     return;
   }
   if (!visible.length) {
-    content.replaceChildren(emptyState({ title: '暂时没有找到这道美味', message: '换个关键词，或看看菜单里的其他好味道。', symbol: 'search', actionText: '查看全部菜品', action: () => { $('#menu-search').value = ''; setFilter('all'); } }));
+    content.replaceChildren(emptyState({ title: '未找到菜品', symbol: 'search', actionText: '重置', action: () => { $('#menu-search').value = ''; setFilter('all'); } }));
     return;
   }
   const grid = element('div', 'menu-grid');
-  visible.forEach(dish => grid.append(makeCard(dish, dishes.indexOf(dish))));
+  visible.forEach(dish => grid.append(makeCard(dish)));
   content.replaceChildren(grid);
 }
 
 async function loadMenu() {
-  loading(content, '正在准备菜单…');
+  loading(content, '');
   try {
     const result = await api('/api/menu');
     if (!Array.isArray(result)) throw new Error('菜单暂时无法读取，请重试。');
     dishes = result; renderMenu();
   } catch (error) {
     content.setAttribute('aria-busy', 'false');
-    content.replaceChildren(emptyState({ title: '菜单还在路上', message: error.message, actionText: '重新加载', action: loadMenu, symbol: 'refresh' }));
+    content.replaceChildren(emptyState({ title: '加载失败', message: error.message, actionText: '重试', action: loadMenu, symbol: 'refresh' }));
   }
 }
 
@@ -117,14 +115,13 @@ function openDish(dish = null) {
   dishForm.reset(); releasePreview(); selectedFile = null; imageAction = 'KEEP';
   setDialogBusy(dishDialog, false);
   showError(dishError, '');
-  $('#dish-dialog-title').textContent = dish ? '让这道菜，更好一点' : '添一道菜';
-  $('#dish-dialog-intro').textContent = dish ? '分享你想做的调整。审核通过前，菜单会保留原来的内容。' : '一道家常味，也值得拥有姓名。提交后由管理员审核。';
+  $('#dish-dialog-title').textContent = dish ? '修改菜品' : '添加菜品';
   $('#dish-name').value = dish?.name || '';
   $('#dish-video').value = dish?.videoUrl || '';
   $('#dish-notes').value = dish?.notes || '';
   $('#notes-count').textContent = `${$('#dish-notes').value.length} / 2000`;
-  $('#dish-submit').textContent = '提交审核 ↗';
-  setImagePreview(safeImageUrl(dish?.imageUrl), '当前菜品图片 · 点击图片可更换');
+  $('#dish-submit').textContent = '提交审核';
+  setImagePreview(safeImageUrl(dish?.imageUrl), '当前图片');
   dishDialog.showModal();
   $('#dish-name').focus();
 }
@@ -133,7 +130,7 @@ function openDelete(dish) {
   deleteDish = dish;
   setDialogBusy(deleteDialog, false);
   $('#delete-dish-name').textContent = dish.name;
-  $('#delete-submit').textContent = '提交删除申请';
+  $('#delete-submit').textContent = '提交审核';
   showError($('#delete-error'), '');
   deleteDialog.showModal();
   $('[data-close="delete-dialog"]', $('#delete-form')).focus();
@@ -165,7 +162,7 @@ async function readImage(file) {
   } finally { if (sequence === imageSequence) readingImage = false; }
 }
 
-$('#hero-add').addEventListener('click', () => openDish());
+$('#add-dish').addEventListener('click', () => openDish());
 document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => setFilter(button.dataset.filter)));
 $('#menu-search').addEventListener('input', renderMenu);
 $('#dish-notes').addEventListener('input', event => { $('#notes-count').textContent = `${event.target.value.length} / 2000`; });
@@ -184,7 +181,7 @@ dishForm.addEventListener('submit', async event => {
   if (readingImage) { showError(dishError, '正在读取图片，请稍等一下再提交。'); return; }
   const name = $('#dish-name').value.trim();
   const rawVideo = $('#dish-video').value.trim();
-  if (!name) { showError(dishError, '给这道菜起个名字吧。'); $('#dish-name').focus(); return; }
+  if (!name) { showError(dishError, '请填写菜名'); $('#dish-name').focus(); return; }
   if (rawVideo && !safeVideoUrl(rawVideo)) { showError(dishError, '请填写完整的 http:// 或 https:// 视频链接。'); $('#dish-video').focus(); return; }
   if (!dishForm.reportValidity()) return;
   const form = new FormData();
@@ -196,9 +193,9 @@ dishForm.addEventListener('submit', async event => {
   try {
     const receipt = await writeApi('/api/submissions', { body: form });
     dishDialog.close();
-    toast('你的心意，已送达', `提交编号 #${receipt.id} · 正在等待审核。审核通过后会更新到菜单。`, 0);
+    toast('已提交，待审核', `#${receipt.id}`, 5000);
   } catch (error) { showError(dishError, error.message); }
-  finally { setDialogBusy(dishDialog, false); $('#dish-submit').textContent = '提交审核 ↗'; }
+  finally { setDialogBusy(dishDialog, false); $('#dish-submit').textContent = '提交审核'; }
 });
 
 $('#delete-form').addEventListener('submit', async event => {
@@ -211,9 +208,9 @@ $('#delete-form').addEventListener('submit', async event => {
   try {
     const receipt = await writeApi('/api/submissions', { body: form });
     deleteDialog.close();
-    toast('删除申请已提交', `提交编号 #${receipt.id} · 审核通过前，这道菜仍会保留在菜单中。`, 0);
+    toast('删除申请已提交', `#${receipt.id} · 待审核`, 5000);
   } catch (error) { showError($('#delete-error'), error.message); }
-  finally { setDialogBusy(deleteDialog, false); $('#delete-submit').textContent = '提交删除申请'; }
+  finally { setDialogBusy(deleteDialog, false); $('#delete-submit').textContent = '提交审核'; }
 });
 
 loadMenu();
