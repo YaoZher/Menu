@@ -54,10 +54,10 @@ body { font-size: 14px; line-height: 1.6; }
 .field input::placeholder, .field textarea::placeholder { font-size: 14px; }
 .required { color: var(--orange); font-size: 14px; }
 .character-count { font-size: 11px; }
-.upload-zone { height: auto; min-height: 92px; padding: 16px; border-radius: 10px; }
-#upload-prompt { display: flex; align-items: center; justify-content: center; gap: 12px; }
+.field > .upload-zone { height: auto; min-height: 92px; padding: 16px; border-radius: 10px; }
+.upload-zone #upload-prompt { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 12px; }
 #upload-prompt .upload-icon { width: 25px; height: 25px; margin: 0; }
-#upload-prompt > span { font-size: 12px; margin: 0; }
+.upload-zone #upload-prompt > span { font-size: 12px; margin: 0; }
 .upload-zone:focus-within { outline: 3px solid #bc654680; outline-offset: 2px; }
 #image-preview { max-height: 180px; width: 100%; object-fit: contain; }
 .image-controls { display: flex; gap: 10px; justify-content: space-between; font-size: 12px; }
@@ -73,8 +73,8 @@ body { font-size: 14px; line-height: 1.6; }
 .login-main { display: block; width: min(400px, calc(100% - 32px)); margin: 64px auto; min-height: 0; }
 .login-card { padding: 28px; border-radius: 16px; }
 .login-card h1, .login-card h2 { font-size: 22px; margin: 0; }
-.login-submit { margin-top: 24px; }
-.password-field > .icon-button { top: 2px; right: 3px; }
+.login-submit { margin-top: 24px; justify-content: center; }
+.password-field > .icon-button { top: 2px; right: 3px; width: 44px; height: 44px; }
 .admin-main { padding: 28px 0 40px; }
 .admin-heading { align-items: center; }
 .admin-heading h1 { font-size: 26px; letter-spacing: 0; }

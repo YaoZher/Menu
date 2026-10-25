@@ -1,3 +1,46 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f6f5ef"><title>审核工作台 · 一方菜单</title><link rel="icon" href="/assets/mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/style.css"><script type="module" src="/assets/admin.js"></script></head>
-<body class="admin-page"><a class="skip-link" href="#reviews">跳到审核列表</a><header class="site-header wrap"><a class="brand" href="/"><img src="/assets/mark.svg" width="38" height="38" alt=""><span>一方菜单<small>GOOD FOOD, GOOD DAYS</small></span></a><div class="header-actions"><a class="subtle-link" href="/">查看菜单 ↗</a><span class="admin-identity" id="admin-identity"></span><button class="text-button" id="logout">退出登录</button></div></header><main class="admin-main wrap"><div class="admin-heading"><div><span class="eyebrow muted">A LITTLE CARE, A BETTER MENU</span><h1>审核工作台<span class="small-flower" aria-hidden="true">✳</span></h1><p>认真对待每一份分享，让好味道顺利上桌。</p></div><button class="button secondary" id="refresh-reviews"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#refresh"/></svg>刷新列表</button></div><div class="stats-grid" aria-label="审核统计"><div class="stat-card featured"><span>等待审核</span><strong id="stat-pending">—</strong><small>等你来看看这些新想法</small></div><div class="stat-card"><span>已通过</span><strong id="stat-approved">—</strong><small>已同步到公开菜单</small></div><div class="stat-card"><span>已驳回</span><strong id="stat-rejected">—</strong><small>保留记录，方便回顾</small></div></div><section id="reviews" aria-labelledby="reviews-heading"><div class="review-toolbar"><h2 id="reviews-heading" class="visually-hidden">提交记录</h2><div class="filter-tabs review-tabs" role="group" aria-label="筛选审核状态"><button class="filter-button active" data-status="PENDING" aria-pressed="true">待审核</button><button class="filter-button" data-status="APPROVED" aria-pressed="false">已通过</button><button class="filter-button" data-status="REJECTED" aria-pressed="false">已驳回</button><button class="filter-button" data-status="ALL" aria-pressed="false">全部记录</button></div><span id="review-count" class="muted-text"></span></div><div id="reviews-content" aria-live="polite" aria-busy="true"><div class="loading-state"><span class="spinner"></span><p>正在读取提交记录…</p></div></div></section></main><footer class="site-footer wrap"><span>一方菜单<span class="footer-divider">/</span>把日子过成喜欢的味道。</span><span>REVIEW WITH CARE</span></footer><dialog id="approve-delete-dialog" class="dialog small-dialog" aria-labelledby="approve-delete-title"><form id="approve-delete-form"><div class="dialog-header"><span class="dialog-symbol"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#trash"/></svg></span><button class="icon-button" type="button" data-close="approve-delete-dialog" aria-label="关闭"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#close"/></svg></button></div><h2 id="approve-delete-title">确认通过删除申请？</h2><p class="dialog-intro">通过后，「<strong id="approve-delete-name"></strong>」将从公开菜单移除。审核记录会保留。</p><p id="approve-delete-error" class="form-error" role="alert" hidden></p><div class="dialog-footer"><button class="button secondary" type="button" data-close="approve-delete-dialog">取消</button><button class="button danger" type="submit" id="approve-delete-submit">确认通过并删除</button></div></form></dialog><div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div></body></html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f5ef">
+  <title>审核 · 一方菜单</title>
+  <link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/style.css">
+  <link rel="stylesheet" href="/assets/simple.css">
+  <script type="module" src="/assets/admin.js"></script>
+</head>
+<body class="admin-page">
+  <a class="skip-link" href="#reviews">跳到审核列表</a>
+  <header class="site-header wrap">
+    <a class="brand" href="/"><img src="/assets/mark.svg" width="38" height="38" alt=""><span>一方菜单</span></a>
+    <div class="header-actions"><a class="subtle-link" href="/">菜单</a><span class="admin-identity" id="admin-identity"></span><button class="text-button" id="logout">退出</button></div>
+  </header>
+  <main class="admin-main wrap">
+    <div class="admin-heading"><div><h1>审核</h1></div><button class="button secondary" id="refresh-reviews"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#refresh"/></svg>刷新</button></div>
+    <div class="stats-grid" aria-label="审核统计">
+      <div class="stat-card featured"><span>待审核</span><strong id="stat-pending">—</strong></div>
+      <div class="stat-card"><span>已通过</span><strong id="stat-approved">—</strong></div>
+      <div class="stat-card"><span>已驳回</span><strong id="stat-rejected">—</strong></div>
+    </div>
+    <section id="reviews" aria-labelledby="reviews-heading">
+      <div class="review-toolbar">
+        <h2 id="reviews-heading" class="visually-hidden">提交记录</h2>
+        <div class="filter-tabs review-tabs" role="group" aria-label="筛选审核状态"><button class="filter-button active" data-status="PENDING" aria-pressed="true">待审核</button><button class="filter-button" data-status="APPROVED" aria-pressed="false">已通过</button><button class="filter-button" data-status="REJECTED" aria-pressed="false">已驳回</button><button class="filter-button" data-status="ALL" aria-pressed="false">全部</button></div>
+        <span id="review-count" class="muted-text"></span>
+      </div>
+      <div id="reviews-content" aria-live="polite" aria-busy="true"><div class="loading-state"><span class="spinner"></span><p>加载中…</p></div></div>
+    </section>
+  </main>
+  <dialog id="approve-delete-dialog" class="dialog small-dialog" aria-labelledby="approve-delete-title">
+    <form id="approve-delete-form">
+      <div class="dialog-header"><span class="dialog-symbol"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#trash"/></svg></span><button class="icon-button" type="button" data-close="approve-delete-dialog" aria-label="关闭"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#close"/></svg></button></div>
+      <h2 id="approve-delete-title">通过删除申请？</h2>
+      <p class="dialog-intro">「<strong id="approve-delete-name"></strong>」将从菜单移除。</p>
+      <p id="approve-delete-error" class="form-error" role="alert" hidden></p>
+      <div class="dialog-footer"><button class="button secondary" type="button" data-close="approve-delete-dialog">取消</button><button class="button danger" type="submit" id="approve-delete-submit">确认删除</button></div>
+    </form>
+  </dialog>
+  <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>

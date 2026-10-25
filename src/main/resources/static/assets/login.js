@@ -18,20 +18,20 @@ form.addEventListener('submit', async event => {
   if (submitting || !form.reportValidity()) return;
   showError($('#login-error'), '');
   const username = $('#username').value.trim();
-  if (!username) { showError($('#login-error'), '请输入管理员账号。'); $('#username').focus(); return; }
+  if (!username) { showError($('#login-error'), '请输入账号。'); $('#username').focus(); return; }
   const body = new URLSearchParams({ username, password: $('#password').value });
   submitting = true;
   form.querySelectorAll('button, input').forEach(control => { control.disabled = true; });
-  submit.textContent = '正在登录…';
+  submit.textContent = '登录中…';
   try {
     await writeApi('/api/auth/login', { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
     location.assign('/admin');
   } catch (error) {
-    showError($('#login-error'), error.status === 401 ? '账号或密码不正确，请重新输入。' : error.message);
+    showError($('#login-error'), error.status === 401 ? '账号或密码错误。' : error.message);
     $('#password').value = '';
     submitting = false;
     form.querySelectorAll('button, input').forEach(control => { control.disabled = false; });
-    submit.textContent = '登录工作台 →';
+    submit.textContent = '登录';
     $('#password').focus();
   }
 });
