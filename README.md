@@ -15,6 +15,10 @@
 
 ## Windows 启动
 
+双击桌面 `Work\启动菜单网站.cmd`，或项目中的 `start-menu.cmd`，可一键启动并自动打开网页，固定使用 8080 端口。首次运行设置管理员密码后，密码会通过 Windows DPAPI 加密保存在当前用户的 `%LOCALAPPDATA%\YaoZherMenu\admin-password.dpapi`，之后无需重复输入；默认账号为 `admin`。此文件不进入 Git 仓库。若设置了 `MENU_ADMIN_PASSWORD`，优先使用环境变量且不保存。
+
+启动窗口保持打开，按 Ctrl+C 停止网站。重复双击会打开已经运行的本项目；8080 被其他程序占用时会提示退出。停止网站后，运行 `powershell -NoProfile -ExecutionPolicy Bypass -File .\start-desktop.ps1 -ResetPassword` 可重新设置密码。
+
 随附已验证的 `target/menu-1.0.0.jar`，直接运行只需 **JDK 21** 加入 PATH。修改源码后重新构建，还需要 **Maven 3.6.3 或以上**。
 
 ```powershell
