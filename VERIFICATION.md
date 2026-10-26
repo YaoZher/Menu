@@ -46,3 +46,14 @@
 - 使用 `-NoBrowser` 完成运行验证，未打开系统默认浏览器；正常双击时脚本等待菜单接口就绪后打开网页。
 - PowerShell 语法检查通过，中文脚本使用 UTF-8 BOM，CMD 使用 ASCII / CRLF，并清理继承的 PowerShell 模块路径以兼容不同 PowerShell 版本。
 - 测试密码与数据库均未写入正式项目，测试服务已停止。本次仅增加启动脚本与文档，未修改后端或重复执行后端测试。
+
+## Cloudflare 与双端口（2026-10-26）
+
+- 当前配置改为前端入口 `127.0.0.1:34455`、Spring Boot 后端 `127.0.0.1:12233`。公网路由为 `https://menu.yaozher.com → cloudflared → 34455 → 12233`。
+- Maven 打包成功，19 项后端集成测试通过；8 项 Node 代理测试通过，覆盖请求体流式传输、Cookie/CSRF/重定向、代理头清洗、502、中断恢复与 Java 退出处理。
+- 独立测试数据库实测匿名 multipart 提交、管理员登录、审批后公开、删除审批、退出后 401。
+- 本地 HTTP 会话可用；可信 Cloudflare HTTPS 请求使用 Secure / HttpOnly / SameSite=Strict Cookie，管理员重定向保持 `https://menu.yaozher.com/login`。
+- 公网 curl 验证主页及 CSRF 接口返回 200，公网会话 Cookie 含 Secure；真实 Chrome 直连完成菜单加载、HTTPS 登录及审核列表读取。
+- 当前系统代理 `127.0.0.1:7897` 会中断此域名的 TLS 连接，使用仅针对测试浏览器的 `--no-proxy-server` 后通过。未更改系统代理配置。
+- Cloudflare 注入的统计脚本被现有 CSP 拦截，菜单与登录功能正常；未为统计功能放宽站点 CSP。
+- 使用短路径 JVM 临时目录完成 Windows 测试；测试数据库、测试密码和浏览器配置均不进入正式项目。停止测试后端后，前端自动退出，两个端口均释放。

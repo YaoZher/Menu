@@ -1,5 +1,15 @@
 server:
-  port: ${PORT:8080}
+  address: ${SERVER_ADDRESS:127.0.0.1}
+  port: ${PORT:12233}
+  forward-headers-strategy: native
+  tomcat:
+    redirect-context-root: false
+    remoteip:
+      internal-proxies: '127\.0\.0\.1|::1|0:0:0:0:0:0:0:1'
+      remote-ip-header: x-forwarded-for
+      protocol-header: x-forwarded-proto
+      host-header: x-forwarded-host
+      port-header: x-forwarded-port
   servlet:
     session:
       timeout: 30m

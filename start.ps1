@@ -2,6 +2,7 @@ param([switch]$SkipBuild)
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
 if (-not (Get-Command java -ErrorAction SilentlyContinue)) { throw 'Java 21 is required.' }
+if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw 'Node.js 22+ is required for the frontend entry point.' }
 if (-not $SkipBuild) {
     if (-not (Get-Command mvn -ErrorAction SilentlyContinue)) { throw 'Maven 3.6.3+ is required.' }
     & mvn -B -ntp clean package
@@ -22,12 +23,15 @@ try {
     if ($env:MENU_ADMIN_PASSWORD.Length -lt 12 -or [Text.Encoding]::UTF8.GetByteCount($env:MENU_ADMIN_PASSWORD) -gt 72) {
         throw 'Password must contain at least 12 characters and at most 72 UTF-8 bytes.'
     }
-    $menuPort = if ($env:PORT) { $env:PORT } else { '8080' }
-    Write-Host ('Menu: http://localhost:' + $menuPort)
-    Write-Host ('Review: http://localhost:' + $menuPort + '/admin')
+    $menuPort = if ($env:PORT) { $env:PORT } else { '12233' }
+    $menuFrontendPort = if ($env:FRONTEND_PORT) { $env:FRONTEND_PORT } else { '34455' }
+    Write-Host ('Backend: http://127.0.0.1:' + $menuPort)
+    Write-Host ('Menu: http://127.0.0.1:' + $menuFrontendPort)
+    Write-Host 'Public menu: https://menu.yaozher.com/'
+    Write-Host 'Review: https://menu.yaozher.com/admin'
     $runtimeTmp = Join-Path $PSScriptRoot 'data\tmp'
     New-Item -ItemType Directory -Path $runtimeTmp -Force | Out-Null
-    & java -Xms64m -Xmx384m "-Djava.io.tmpdir=$runtimeTmp" "-Djdk.net.unixdomain.tmpdir=$runtimeTmp" -jar $jar
+    & node (Join-Path $PSScriptRoot 'frontend-server.mjs') --jar $jar --tmp $runtimeTmp
     if ($LASTEXITCODE -ne 0) { throw 'The application exited with an error.' }
 }
 finally {

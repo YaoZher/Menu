@@ -1,11 +1,14 @@
 ﻿param([switch]$NoBrowser, [switch]$ResetPassword)
 
 $ErrorActionPreference = 'Stop'
-$menuUrl = 'http://localhost:8080/'
+$menuUrl = 'http://127.0.0.1:34455/'
+$menuPublicUrl = 'https://menu.yaozher.com/'
 $menuJar = Join-Path $PSScriptRoot 'target\menu-1.0.0.jar'
+$menuFrontendScript = Join-Path $PSScriptRoot 'frontend-server.mjs'
 $menuPasswordFile = Join-Path $env:LOCALAPPDATA 'YaoZherMenu\admin-password.dpapi'
 $menuBrowserJob = $null
 $menuOriginalPort = $env:PORT
+$menuOriginalFrontendPort = $env:FRONTEND_PORT
 $menuOriginalPassword = $env:MENU_ADMIN_PASSWORD
 
 function Get-PlainPassword([Security.SecureString]$Secret) {
@@ -17,22 +20,28 @@ function Get-PlainPassword([Security.SecureString]$Secret) {
 try {
     Set-Location -LiteralPath $PSScriptRoot
     $menuRunning = @(Get-CimInstance Win32_Process -Filter "Name = 'java.exe'" | Where-Object { $_.CommandLine -like ('*' + $menuJar + '*') })
-    $menuProbe = New-Object Net.Sockets.TcpClient
-    $menuPortBusy = $false
-    try { $menuProbe.Connect('localhost', 8080); $menuPortBusy = $true }
-    catch { }
-    finally { $menuProbe.Dispose() }
+    $menuFrontendRunning = @(Get-CimInstance Win32_Process -Filter "Name = 'node.exe'" | Where-Object { $_.CommandLine -like ('*' + $menuFrontendScript + '*') })
+    if ($menuFrontendRunning.Count -gt 0 -and $menuRunning.Count -eq 0) { throw '前端入口正在启动后端，请稍后重试；若持续失败，请检查原启动窗口。' }
     if ($menuRunning.Count -gt 0) {
         if ($ResetPassword) { throw '网站正在运行，请先停止后再重设密码。' }
+        if ($menuFrontendRunning.Count -eq 0) { throw '后端已运行但前端入口未运行，请先停止旧启动窗口再重新启动。' }
         $menuResponse = Invoke-WebRequest -Uri ($menuUrl + 'api/menu') -UseBasicParsing -TimeoutSec 5
         if ($menuResponse.StatusCode -ne 200 -or $menuResponse.Headers['Content-Type'] -notlike 'application/json*') { throw '检测到项目进程，但网站尚未就绪，请稍后重试。' }
-        Write-Host ('菜单网站已在运行：' + $menuUrl)
-        if (-not $NoBrowser) { Start-Process -FilePath $menuUrl }
+        Write-Host ('菜单网站已在运行：' + $menuPublicUrl)
+        if (-not $NoBrowser) { Start-Process -FilePath $menuPublicUrl }
         exit 0
     }
-    if ($menuPortBusy) { throw '8080 端口被其他程序占用，请先关闭占用程序后重试。' }
+    foreach ($menuPortToCheck in @(12233, 34455)) {
+        $menuProbe = New-Object Net.Sockets.TcpClient
+        $menuPortBusy = $false
+        try { $menuProbe.Connect('127.0.0.1', $menuPortToCheck); $menuPortBusy = $true }
+        catch { }
+        finally { $menuProbe.Dispose() }
+        if ($menuPortBusy) { throw ($menuPortToCheck.ToString() + ' 端口被其他程序占用，请先关闭占用程序后重试。') }
+    }
 
     if (-not (Get-Command java -ErrorAction SilentlyContinue)) { throw '未找到 Java，请安装 JDK 21 并加入 PATH。' }
+    if (-not (Get-Command node -ErrorAction SilentlyContinue)) { throw '未找到 Node.js，请安装 Node.js 22 或以上并加入 PATH。' }
     if (-not (Test-Path -LiteralPath $menuJar)) {
         if (-not (Get-Command mvn -ErrorAction SilentlyContinue)) { throw '缺少运行文件，请先安装 Maven 并在项目中执行 mvn package。' }
         Write-Host '首次构建，请稍候…'
@@ -70,20 +79,22 @@ try {
         }
     }
 
-    $env:PORT = '8080'
+    $env:PORT = '12233'
+    $env:FRONTEND_PORT = '34455'
     $menuUsername = if ($env:MENU_ADMIN_USERNAME) { $env:MENU_ADMIN_USERNAME } else { 'admin' }
-    Write-Host ('菜单：' + $menuUrl)
-    Write-Host ('审核：' + $menuUrl + 'admin  账号：' + $menuUsername)
+    Write-Host ('菜单：' + $menuPublicUrl)
+    Write-Host ('审核：' + $menuPublicUrl + 'admin  账号：' + $menuUsername)
+    Write-Host ('本地前端：' + $menuUrl + '  后端：http://127.0.0.1:12233/')
     Write-Host '启动后请保留此窗口；按 Ctrl+C 停止网站。'
 
     if (-not $NoBrowser) {
-        $menuBrowserJob = Start-Job -ArgumentList $menuUrl -ScriptBlock {
-            param($Url)
+        $menuBrowserJob = Start-Job -ArgumentList $menuUrl, $menuPublicUrl -ScriptBlock {
+            param($Url, $PublicUrl)
             for ($menuAttempt = 0; $menuAttempt -lt 90; $menuAttempt++) {
                 try {
                     $menuResponse = Invoke-WebRequest -Uri ($Url + 'api/menu') -UseBasicParsing -TimeoutSec 2
                     if ($menuResponse.StatusCode -eq 200 -and $menuResponse.Headers['Content-Type'] -like 'application/json*') {
-                        Start-Process -FilePath $Url
+                        Start-Process -FilePath $PublicUrl
                         return
                     }
                 } catch { }
@@ -101,5 +112,6 @@ try {
         Remove-Job -Job $menuBrowserJob -Force -ErrorAction SilentlyContinue
     }
     $env:PORT = $menuOriginalPort
+    $env:FRONTEND_PORT = $menuOriginalFrontendPort
     $env:MENU_ADMIN_PASSWORD = $menuOriginalPassword
 }
