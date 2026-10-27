@@ -2,6 +2,8 @@
 
 无需登录即可浏览菜单、提交新增/修改/删除；由厨师审核后发布。待审核列表默认只显示菜名，点击展开。
 
+图片支持 JPG / PNG（≤ 5 MB）；视频栏可粘贴链接或整段分享文案，自动提取其中的网址。
+
 - 菜单：https://menu.yaozher.com/
 - 厨师审核：https://menu.yaozher.com/chef
 - 厨师登录：https://menu.yaozher.com/chef/login
@@ -33,4 +35,4 @@
 
 `menu.yaozher.com → cloudflared → 127.0.0.1:34455 前端 → 127.0.0.1:12233 后端`。Cloudflare 的 Service URL 使用 `http://127.0.0.1:34455`。
 
-数据库位于 `data/menu.mv.db`，备份前先停止网站。运行 `mvn package` 构建，`node --test frontend-server.test.mjs` 验证代理。更多验证记录见 [VERIFICATION.md](VERIFICATION.md)。
+数据库位于 `data/menu.mv.db`，备份前先停止网站。运行 `mvn package` 构建并测试后端，`node --test *.test.mjs` 验证前端输入和代理。更多验证记录见 [VERIFICATION.md](VERIFICATION.md)。

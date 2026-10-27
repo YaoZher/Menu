@@ -37,10 +37,10 @@
         <div class="field"><label for="dish-name">菜名 <span class="required" aria-hidden="true">*</span></label><input id="dish-name" name="name" maxlength="80" placeholder="菜名" required autocomplete="off"></div>
         <div class="field">
           <label for="dish-image">图片</label>
-          <label class="upload-zone" id="upload-zone" for="dish-image"><span id="upload-prompt"><svg class="upload-icon" aria-hidden="true"><use href="/assets/icons.svg#image"/></svg><span>JPG / PNG · ≤ 5 MB</span></span><img id="image-preview" alt="菜品图片预览" hidden><input type="file" id="dish-image" name="image" accept="image/png,image/jpeg" class="file-input"></label>
+          <label class="upload-zone" id="upload-zone" for="dish-image"><span id="upload-prompt"><svg class="upload-icon" aria-hidden="true"><use href="/assets/icons.svg#image"/></svg><span>JPG / PNG · ≤ 5 MB</span></span><img id="image-preview" alt="菜品图片预览" hidden><input type="file" id="dish-image" name="image" accept=".png,.jpg,.jpeg,image/png,image/jpeg,image/x-png" class="file-input"></label>
           <div class="image-controls" id="image-controls" hidden><span id="image-caption"></span><button type="button" class="text-button danger-text" id="remove-image">移除</button></div>
         </div>
-        <div class="field"><label for="dish-video">视频链接</label><input id="dish-video" name="videoUrl" type="url" maxlength="2048" placeholder="https://…" inputmode="url"></div>
+        <div class="field"><label for="dish-video">视频链接</label><textarea id="dish-video" name="videoUrl" rows="2" maxlength="8192" placeholder="粘贴视频链接或分享内容" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea></div>
         <div class="field"><label for="dish-notes">备注<span class="character-count" id="notes-count">0 / 2000</span></label><div class="note-tools" role="group" aria-label="备注格式"><button class="note-tool" type="button" data-note-marker="•" aria-label="添加材料行" title="材料"><span aria-hidden="true">•</span><small>材料</small></button><button class="note-tool" type="button" data-note-marker="//" aria-label="添加步骤行" title="步骤"><span aria-hidden="true">//</span><small>步骤</small></button></div><textarea id="dish-notes" name="notes" rows="4" maxlength="2000" placeholder="• 西红柿 2 个&#10;// 切块后翻炒"></textarea></div>
       </div>
       <p id="dish-error" class="form-error" role="alert" hidden></p>

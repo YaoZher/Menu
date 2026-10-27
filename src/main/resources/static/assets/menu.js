@@ -1,5 +1,6 @@
 import { $, element, icon, api, writeApi, safeVideoUrl, safeImageUrl, toast, showError, loading, emptyState, configureDialogs, setDialogBusy } from './common.js';
 import { getNoteLines, renderNoteContent, insertNoteMarker } from './notes.js';
+import { ImageValidationError, prepareUploadImage, validateImageDimensions, extractVideoUrl } from './submission-input.js';
 
 let dishes = [];
 let activeFilter = 'all';
@@ -10,6 +11,7 @@ let imageAction = 'KEEP';
 let previewUrl = null;
 let imageSequence = 0;
 let readingImage = false;
+let imageValidationError = '';
 const content = $('#menu-content');
 const dishDialog = $('#dish-dialog');
 const deleteDialog = $('#delete-dialog');
@@ -121,7 +123,7 @@ function setImagePreview(url, caption = '') {
 
 function openDish(dish = null) {
   editDish = dish;
-  imageSequence += 1; readingImage = false;
+  imageSequence += 1; readingImage = false; imageValidationError = '';
   dishForm.reset(); releasePreview(); selectedFile = null; imageAction = 'KEEP';
   setDialogBusy(dishDialog, false);
   showError(dishError, '');
@@ -147,29 +149,34 @@ function openDelete(dish) {
 }
 
 async function readImage(file) {
-  const sequence = ++imageSequence;
   if (!file) return;
+  const sequence = ++imageSequence;
+  readingImage = true; imageValidationError = '';
   showError(dishError, '');
-  if (!['image/png', 'image/jpeg'].includes(file.type)) {
-    showError(dishError, '请选择 JPG 或 PNG 格式的图片。'); $('#dish-image').value = ''; return;
-  }
-  if (file.size > 5 * 1024 * 1024) {
-    showError(dishError, '图片不能超过 5 MB，请压缩后重新选择。'); $('#dish-image').value = ''; return;
-  }
-  const temporaryUrl = URL.createObjectURL(file);
-  readingImage = true;
+  releasePreview(); selectedFile = null;
+  setImagePreview(null);
+  $('#image-controls').hidden = false;
+  $('#image-caption').textContent = file.name;
+  let temporaryUrl = null;
   try {
+    const normalizedFile = await prepareUploadImage(file);
+    if (sequence !== imageSequence) return;
+    temporaryUrl = URL.createObjectURL(normalizedFile);
     const image = new Image(); image.src = temporaryUrl; await image.decode();
-    if (sequence !== imageSequence) { URL.revokeObjectURL(temporaryUrl); return; }
-    if (image.naturalWidth > 4096 || image.naturalHeight > 4096) throw new Error('图片的宽和高不能超过 4096 像素，请缩小后重新选择。');
-    releasePreview(); previewUrl = temporaryUrl; selectedFile = file; imageAction = 'REPLACE';
+    if (sequence !== imageSequence) return;
+    validateImageDimensions(image.naturalWidth, image.naturalHeight);
+    previewUrl = temporaryUrl; temporaryUrl = null;
+    selectedFile = normalizedFile; imageAction = 'REPLACE';
     setImagePreview(previewUrl, `${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB`);
   } catch (error) {
-    URL.revokeObjectURL(temporaryUrl);
     if (sequence !== imageSequence) return;
     $('#dish-image').value = '';
-    showError(dishError, error.message?.includes('4096') ? error.message : '这张图片无法读取，请选择有效的 JPG 或 PNG 图片。');
-  } finally { if (sequence === imageSequence) readingImage = false; }
+    imageValidationError = error instanceof ImageValidationError ? error.message : '这张图片无法读取，请选择有效的 JPG 或 PNG 图片。';
+    showError(dishError, imageValidationError);
+  } finally {
+    if (temporaryUrl) URL.revokeObjectURL(temporaryUrl);
+    if (sequence === imageSequence) readingImage = false;
+  }
 }
 
 $('#add-dish').addEventListener('click', () => openDish());
@@ -190,11 +197,11 @@ document.querySelectorAll('[data-note-marker]').forEach(button => {
 });
 $('#dish-image').addEventListener('change', event => { readImage(event.target.files[0]); });
 $('#remove-image').addEventListener('click', () => {
-  imageSequence += 1; readingImage = false; releasePreview(); selectedFile = null;
+  imageSequence += 1; readingImage = false; imageValidationError = ''; releasePreview(); selectedFile = null;
   imageAction = editDish?.imageUrl ? 'REMOVE' : 'KEEP';
   $('#dish-image').value = ''; setImagePreview(null); showError(dishError, '');
 });
-dishDialog.addEventListener('close', () => { imageSequence += 1; readingImage = false; releasePreview(); });
+dishDialog.addEventListener('close', () => { imageSequence += 1; readingImage = false; imageValidationError = ''; releasePreview(); });
 
 dishForm.addEventListener('submit', async event => {
   event.preventDefault();
@@ -202,14 +209,18 @@ dishForm.addEventListener('submit', async event => {
   showError(dishError, '');
   if (readingImage) { showError(dishError, '正在读取图片，请稍等一下再提交。'); return; }
   const name = $('#dish-name').value.trim();
-  const rawVideo = $('#dish-video').value.trim();
+  const rawVideo = $('#dish-video').value;
   if (!name) { showError(dishError, '请填写菜名'); $('#dish-name').focus(); return; }
-  if (rawVideo && !safeVideoUrl(rawVideo)) { showError(dishError, '请填写完整的 http:// 或 https:// 视频链接。'); $('#dish-video').focus(); return; }
+  if (imageValidationError) { showError(dishError, imageValidationError); $('#dish-image').focus(); return; }
+  let videoUrl;
+  try { videoUrl = extractVideoUrl(rawVideo); }
+  catch (error) { showError(dishError, error.message); $('#dish-video').focus(); return; }
+  $('#dish-video').value = videoUrl;
   if (!dishForm.reportValidity()) return;
   const form = new FormData();
   form.set('operation', editDish ? 'UPDATE' : 'CREATE');
   if (editDish) { form.set('dishId', editDish.id); form.set('expectedVersion', editDish.version); }
-  form.set('name', name); form.set('videoUrl', rawVideo); form.set('notes', $('#dish-notes').value.trim()); form.set('imageAction', imageAction);
+  form.set('name', name); form.set('videoUrl', videoUrl); form.set('notes', $('#dish-notes').value.trim()); form.set('imageAction', imageAction);
   if (selectedFile) form.set('image', selectedFile);
   setDialogBusy(dishDialog, true); $('#dish-submit').textContent = '正在提交…';
   try {

@@ -4,8 +4,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.util.stream.Stream;
 import javax.imageio.ImageIO;
+import javax.imageio.stream.MemoryCacheImageOutputStream;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -154,10 +159,8 @@ class MenuIntegrationTest {
     }
 
     @Test void pendingImagesArePrivateAndPublishedImagesAreReadable() throws Exception {
-        ByteArrayOutputStream image = new ByteArrayOutputStream();
-        ImageIO.write(new BufferedImage(3, 3, BufferedImage.TYPE_INT_RGB), "png", image);
         String name = "带图-" + System.nanoTime();
-        long id = submit(create(name).file(new MockMultipartFile("image", "dish.png", "image/png", image.toByteArray()))
+        long id = submit(create(name).file(new MockMultipartFile("image", "dish.png", "image/png", pngImage()))
                 .param("imageAction", "REPLACE"));
         JsonNode all = json(mvc.perform(get("/api/chef/submissions?status=ALL").with(chef())).andReturn());
         String imageUrl = null;
@@ -179,6 +182,61 @@ class MenuIntegrationTest {
                 .param("imageAction", "REPLACE").with(csrf())).andExpect(status().isBadRequest());
         mvc.perform(create("大图").file(new MockMultipartFile("image", "large.png", "image/png", new byte[5 * 1024 * 1024 + 1]))
                 .param("imageAction", "REPLACE").with(csrf())).andExpect(status().isPayloadTooLarge());
+        mvc.perform(create("损坏图片").file(new MockMultipartFile("image", "broken.png", "image/png",
+                        new byte[] {(byte) 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a}))
+                .param("imageAction", "REPLACE").with(csrf())).andExpect(status().isBadRequest());
+    }
+
+    @ParameterizedTest
+    @MethodSource("mobilePngUploads")
+    void recognizesPngBytesRegardlessOfMobileFilenameOrMime(String filename, String contentType) throws Exception {
+        long id = submit(create("手机截图-" + System.nanoTime())
+                .file(new MockMultipartFile("image", filename, contentType, pngImage())).param("imageAction", "REPLACE"));
+        String imageUrl = findSubmission(id).path("after").path("imageUrl").asText();
+        mvc.perform(get(imageUrl).with(chef())).andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_PNG));
+        mvc.perform(get(imageUrl)).andExpect(status().isNotFound());
+    }
+
+    static Stream<Arguments> mobilePngUploads() {
+        return Stream.of(
+                Arguments.of("Screenshot.PNG", ""),
+                Arguments.of("Screenshot", null),
+                Arguments.of("Screenshot.png", "image/x-png"),
+                Arguments.of("Screenshot.bin", "application/octet-stream"),
+                Arguments.of("Screenshot.jpeg", "image/jpeg"));
+    }
+
+    @Test void pastedSharingTextAndMobilePngSurviveSubmissionReviewAndPublication() throws Exception {
+        String name = "分享截图-" + System.nanoTime();
+        String link = "https://v.douyin.com/AbC123/?token=a%2Fb%3D&from=share#step2";
+        long id = submit(create(name).file(new MockMultipartFile("image", "截图.PNG", "application/octet-stream", pngImage()))
+                .param("videoUrl", "复制打开抖音，看看这道菜（" + link + "）。\n10/27 分享")
+                .param("imageAction", "REPLACE"));
+        JsonNode pending = findSubmission(id);
+        assertThat(pending.path("after").path("videoUrl").asText()).isEqualTo(link);
+        assertThat(findDish(name)).isNull();
+        approve(id, 200);
+        JsonNode published = findDish(name);
+        assertThat(published.path("videoUrl").asText()).isEqualTo(link);
+        mvc.perform(get(published.path("imageUrl").asText())).andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_PNG));
+    }
+
+    private static byte[] pngImage() throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (var output = new MemoryCacheImageOutputStream(bytes)) {
+            ImageIO.write(new BufferedImage(3, 3, BufferedImage.TYPE_INT_RGB), "png", output);
+            output.flush();
+        }
+        return bytes.toByteArray();
+    }
+
+    private JsonNode findSubmission(long id) throws Exception {
+        for (JsonNode submission : json(mvc.perform(get("/api/chef/submissions?status=ALL").with(chef())).andReturn())) {
+            if (submission.path("id").asLong() == id) return submission;
+        }
+        throw new AssertionError("Submission not found: " + id);
     }
 
     private MockMultipartHttpServletRequestBuilder create(String name) {

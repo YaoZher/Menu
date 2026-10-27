@@ -4,8 +4,6 @@ import com.example.menu.domain.*;
 import com.example.menu.service.MenuViews.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -46,8 +44,7 @@ public class MenuService {
             String name = clean(command.name(), 80, "菜名");
             if (name == null) throw ApiException.badRequest("请填写菜名");
             if (name.codePoints().anyMatch(Character::isISOControl)) throw ApiException.badRequest("菜名不能包含换行或控制字符");
-            String videoUrl = clean(command.videoUrl(), 2048, "视频链接");
-            validateVideoUrl(videoUrl);
+            String videoUrl = VideoLinks.extract(command.videoUrl());
             String notes = clean(command.notes(), 2000, "备注");
             boolean hasFile = command.image() != null && !command.image().isEmpty();
             String rawAction = command.imageAction();
@@ -131,20 +128,6 @@ public class MenuService {
         String cleaned = value.strip();
         if (cleaned.length() > limit) throw ApiException.badRequest(label + "不能超过 " + limit + " 个字符");
         return cleaned.isEmpty() ? null : cleaned;
-    }
-
-    private static void validateVideoUrl(String value) {
-        if (value == null) return;
-        try {
-            URI uri = new URI(value);
-            if (!("http".equalsIgnoreCase(uri.getScheme()) || "https".equalsIgnoreCase(uri.getScheme()))
-                    || uri.getHost() == null || uri.getHost().isBlank() || uri.getRawUserInfo() != null
-                    || (uri.getPort() != -1 && (uri.getPort() < 1 || uri.getPort() > 65535))) {
-                throw ApiException.badRequest("视频链接须为有效的 http 或 https 网址，且不能包含账号密码");
-            }
-        } catch (URISyntaxException exception) {
-            throw ApiException.badRequest("视频链接格式不正确");
-        }
     }
 
     private static Long parseLong(String value, String message, long minimum) {
