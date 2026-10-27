@@ -39,8 +39,8 @@ spring:
       max-file-size: 5MB
       max-request-size: 6MB
 app:
-  admin:
-    username: ${MENU_ADMIN_USERNAME:admin}
-    password: ${MENU_ADMIN_PASSWORD:}
+  chef:
+    username: ${MENU_CHEF_USERNAME:chef}
+    password: ${MENU_CHEF_PASSWORD:${MENU_ADMIN_PASSWORD:}}
   rate-limit:
     enabled: true

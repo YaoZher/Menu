@@ -15,7 +15,7 @@
   <header class="site-header wrap">
     <a class="brand" href="/" aria-label="一方菜单首页"><img src="/assets/mark.svg" width="32" height="32" alt=""><span>一方菜单</span></a>
     <div class="header-actions">
-      <a class="icon-button" href="/admin" aria-label="审核后台" title="审核后台"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#lock"/></svg></a>
+      <a class="icon-button chef-link" href="/chef" aria-label="厨师审核" title="厨师审核"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#chef"/></svg></a>
       <button type="button" class="add-button" id="add-dish" aria-label="添加菜品" title="添加菜品"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#plus"/></svg></button>
     </div>
   </header>
@@ -41,7 +41,7 @@
           <div class="image-controls" id="image-controls" hidden><span id="image-caption"></span><button type="button" class="text-button danger-text" id="remove-image">移除</button></div>
         </div>
         <div class="field"><label for="dish-video">视频链接</label><input id="dish-video" name="videoUrl" type="url" maxlength="2048" placeholder="https://…" inputmode="url"></div>
-        <div class="field"><label for="dish-notes">备注<span class="character-count" id="notes-count">0 / 2000</span></label><textarea id="dish-notes" name="notes" rows="3" maxlength="2000" placeholder="选填"></textarea></div>
+        <div class="field"><label for="dish-notes">备注<span class="character-count" id="notes-count">0 / 2000</span></label><div class="note-tools" role="group" aria-label="备注格式"><button class="note-tool" type="button" data-note-marker="•" aria-label="添加材料行" title="材料"><span aria-hidden="true">•</span><small>材料</small></button><button class="note-tool" type="button" data-note-marker="//" aria-label="添加步骤行" title="步骤"><span aria-hidden="true">//</span><small>步骤</small></button></div><textarea id="dish-notes" name="notes" rows="4" maxlength="2000" placeholder="• 西红柿 2 个&#10;// 切块后翻炒"></textarea></div>
       </div>
       <p id="dish-error" class="form-error" role="alert" hidden></p>
       <div class="dialog-footer"><button class="button secondary" type="button" data-close="dish-dialog">取消</button><button class="button primary" id="dish-submit" type="submit">提交审核</button></div>

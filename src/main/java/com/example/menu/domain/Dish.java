@@ -2,6 +2,7 @@ package com.example.menu.domain;
 
 import jakarta.persistence.*;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -16,6 +17,10 @@ public class Dish {
     private String videoUrl;
     @Column(length = 2000)
     private String notes;
+    @Lob
+    @Convert(converter = NoteLinesConverter.class)
+    @Column(name = "note_lines")
+    private List<NoteLine> noteLines;
     @Version
     private long version;
     @Column(nullable = false)
@@ -30,15 +35,17 @@ public class Dish {
         imageId = snapshot.getImageId();
         videoUrl = snapshot.getVideoUrl();
         notes = snapshot.getNotes();
+        noteLines = List.copyOf(snapshot.getNoteLines());
         updatedAt = now;
     }
 
-    public DishSnapshot snapshot() { return new DishSnapshot(name, imageId, videoUrl, notes); }
+    public DishSnapshot snapshot() { return new DishSnapshot(name, imageId, videoUrl, notes, getNoteLines()); }
     public Long getId() { return id; }
     public String getName() { return name; }
     public UUID getImageId() { return imageId; }
     public String getVideoUrl() { return videoUrl; }
     public String getNotes() { return notes; }
+    public List<NoteLine> getNoteLines() { return noteLines == null ? NoteLines.parse(notes) : noteLines; }
     public long getVersion() { return version; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

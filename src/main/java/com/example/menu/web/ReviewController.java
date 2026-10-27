@@ -9,7 +9,7 @@ import java.security.Principal;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/admin/submissions")
+@RequestMapping("/api/chef/submissions")
 public class ReviewController {
     private final MenuService menu;
 
@@ -33,7 +33,7 @@ public class ReviewController {
     }
 
     private String reviewer(Principal principal) {
-        if (principal == null) throw new ApiException(HttpStatus.UNAUTHORIZED, "请先登录审核后台");
+        if (principal == null) throw new ApiException(HttpStatus.UNAUTHORIZED, "请先登录厨师后台");
         String username = principal.getName();
         if (username == null || username.isBlank() || username.length() > 255) {
             throw ApiException.badRequest("审核账号名称无效");

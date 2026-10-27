@@ -5,11 +5,12 @@ $menuUrl = 'http://127.0.0.1:34455/'
 $menuPublicUrl = 'https://menu.yaozher.com/'
 $menuJar = Join-Path $PSScriptRoot 'target\menu-1.0.0.jar'
 $menuFrontendScript = Join-Path $PSScriptRoot 'frontend-server.mjs'
-$menuPasswordFile = Join-Path $env:LOCALAPPDATA 'YaoZherMenu\admin-password.dpapi'
+$menuPasswordFile = Join-Path $env:LOCALAPPDATA 'YaoZherMenu\chef-password.dpapi'
+$menuLegacyPasswordFile = Join-Path $env:LOCALAPPDATA 'YaoZherMenu\admin-password.dpapi'
 $menuBrowserJob = $null
 $menuOriginalPort = $env:PORT
 $menuOriginalFrontendPort = $env:FRONTEND_PORT
-$menuOriginalPassword = $env:MENU_ADMIN_PASSWORD
+$menuOriginalPassword = $env:MENU_CHEF_PASSWORD
 
 function Get-PlainPassword([Security.SecureString]$Secret) {
     $menuSecretPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Secret)
@@ -49,16 +50,21 @@ try {
         if ($LASTEXITCODE -ne 0) { throw '构建失败，请查看上方错误信息。' }
     }
 
-    if ($ResetPassword -or [string]::IsNullOrEmpty($env:MENU_ADMIN_PASSWORD)) {
-        if (-not $ResetPassword -and (Test-Path -LiteralPath $menuPasswordFile)) {
-            $menuSecret = (Get-Content -LiteralPath $menuPasswordFile -Raw).Trim() | ConvertTo-SecureString
-            try { $env:MENU_ADMIN_PASSWORD = Get-PlainPassword $menuSecret }
+    if (-not $env:MENU_CHEF_PASSWORD -and $env:MENU_ADMIN_PASSWORD) { $env:MENU_CHEF_PASSWORD = $env:MENU_ADMIN_PASSWORD }
+    $menuSavedPasswordFile = if (Test-Path -LiteralPath $menuPasswordFile) { $menuPasswordFile } else { $menuLegacyPasswordFile }
+    if ($ResetPassword -or [string]::IsNullOrEmpty($env:MENU_CHEF_PASSWORD)) {
+        if (-not $ResetPassword -and (Test-Path -LiteralPath $menuSavedPasswordFile)) {
+            $menuSecret = (Get-Content -LiteralPath $menuSavedPasswordFile -Raw).Trim() | ConvertTo-SecureString
+            try { $env:MENU_CHEF_PASSWORD = Get-PlainPassword $menuSecret }
             finally { $menuSecret.Dispose() }
+            if ($menuSavedPasswordFile -ne $menuPasswordFile) {
+                Copy-Item -LiteralPath $menuSavedPasswordFile -Destination $menuPasswordFile
+            }
         } else {
-            Write-Host '首次启动请设置管理员密码（至少 12 个字符）。'
+            Write-Host '首次启动请设置厨师密码（至少 12 个字符）。'
             Write-Host '密码将由当前 Windows 账户加密保存，之后双击即可启动。'
             do {
-                $menuSecret = Read-Host '管理员密码' -AsSecureString
+                $menuSecret = Read-Host '厨师密码' -AsSecureString
                 $menuConfirm = Read-Host '再次输入密码' -AsSecureString
                 try {
                     $menuPlain = Get-PlainPassword $menuSecret
@@ -67,7 +73,7 @@ try {
                     if ($menuValid) {
                         New-Item -ItemType Directory -Path (Split-Path -Parent $menuPasswordFile) -Force | Out-Null
                         $menuSecret | ConvertFrom-SecureString | Set-Content -LiteralPath $menuPasswordFile -Encoding ASCII
-                        $env:MENU_ADMIN_PASSWORD = $menuPlain
+                        $env:MENU_CHEF_PASSWORD = $menuPlain
                     } else { Write-Host '两次密码需一致，且至少 12 个字符、UTF-8 不超过 72 字节。' -ForegroundColor Yellow }
                 } finally {
                     $menuSecret.Dispose()
@@ -81,9 +87,9 @@ try {
 
     $env:PORT = '12233'
     $env:FRONTEND_PORT = '34455'
-    $menuUsername = if ($env:MENU_ADMIN_USERNAME) { $env:MENU_ADMIN_USERNAME } else { 'admin' }
+    $menuUsername = if ($env:MENU_CHEF_USERNAME) { $env:MENU_CHEF_USERNAME } else { 'chef' }
     Write-Host ('菜单：' + $menuPublicUrl)
-    Write-Host ('审核：' + $menuPublicUrl + 'admin  账号：' + $menuUsername)
+    Write-Host ('审核：' + $menuPublicUrl + 'chef  账号：' + $menuUsername)
     Write-Host ('本地前端：' + $menuUrl + '  后端：http://127.0.0.1:12233/')
     Write-Host '启动后请保留此窗口；按 Ctrl+C 停止网站。'
 
@@ -113,5 +119,5 @@ try {
     }
     $env:PORT = $menuOriginalPort
     $env:FRONTEND_PORT = $menuOriginalFrontendPort
-    $env:MENU_ADMIN_PASSWORD = $menuOriginalPassword
+    $env:MENU_CHEF_PASSWORD = $menuOriginalPassword
 }

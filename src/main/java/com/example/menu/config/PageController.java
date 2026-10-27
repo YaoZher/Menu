@@ -9,10 +9,10 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 @Controller
 public class PageController {
-    @GetMapping({"/admin", "/admin/"})
-    String admin() { return "forward:/admin.html"; }
+    @GetMapping({"/chef", "/chef/"})
+    String chef() { return "forward:/chef.html"; }
 
-    @GetMapping("/login")
+    @GetMapping("/chef/login")
     String login() { return "forward:/login.html"; }
 
     @GetMapping("/api/csrf")
@@ -21,7 +21,7 @@ public class PageController {
         return Map.of("token", token.getToken(), "headerName", token.getHeaderName());
     }
 
-    @GetMapping("/api/admin/me")
+    @GetMapping("/api/chef/me")
     @ResponseBody
     Map<String, String> me(Principal principal) { return Map.of("username", principal.getName()); }
 }

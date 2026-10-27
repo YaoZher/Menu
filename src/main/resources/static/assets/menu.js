@@ -1,4 +1,5 @@
 import { $, element, icon, api, writeApi, safeVideoUrl, safeImageUrl, toast, showError, loading, emptyState, configureDialogs, setDialogBusy } from './common.js';
+import { getNoteLines, renderNoteContent, insertNoteMarker } from './notes.js';
 
 let dishes = [];
 let activeFilter = 'all';
@@ -32,7 +33,9 @@ function makeCard(dish) {
   } else imageFallback(cover);
   const body = element('div', 'dish-body');
   body.append(element('h3', '', dish.name));
-  if (dish.notes) body.append(element('p', 'dish-notes', dish.notes));
+  const noteLines = getNoteLines(dish);
+  const hasPreparation = noteLines.some(line => line.type !== 'NOTE');
+  if (!hasPreparation && dish.notes) body.append(element('p', 'dish-notes', dish.notes));
   const meta = element('div', 'dish-meta');
   const video = safeVideoUrl(dish.videoUrl);
   if (video) {
@@ -53,6 +56,13 @@ function makeCard(dish) {
   remove.setAttribute('aria-label', `申请删除${dish.name}`);
   remove.addEventListener('click', () => openDelete(dish));
   actions.append(edit, remove); card.append(cover, body, actions);
+  if (hasPreparation) {
+    const preparation = element('details', 'dish-prep');
+    const summary = element('summary');
+    summary.append(element('span', '', '备菜'), icon('chevron', 'icon prep-chevron'));
+    preparation.append(summary, renderNoteContent(dish));
+    card.append(preparation);
+  }
   return card;
 }
 
@@ -166,6 +176,18 @@ $('#add-dish').addEventListener('click', () => openDish());
 document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => setFilter(button.dataset.filter)));
 $('#menu-search').addEventListener('input', renderMenu);
 $('#dish-notes').addEventListener('input', event => { $('#notes-count').textContent = `${event.target.value.length} / 2000`; });
+document.querySelectorAll('[data-note-marker]').forEach(button => {
+  button.addEventListener('mousedown', event => event.preventDefault());
+  button.addEventListener('click', () => {
+    const notes = $('#dish-notes');
+    const updated = insertNoteMarker(notes.value, notes.selectionStart, notes.selectionEnd, button.dataset.noteMarker, notes.maxLength);
+    if (!updated) { showError(dishError, '备注不能超过 2000 个字符。'); notes.focus(); return; }
+    notes.value = updated.value;
+    notes.focus();
+    notes.setSelectionRange(updated.selectionStart, updated.selectionEnd);
+    notes.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+});
 $('#dish-image').addEventListener('change', event => { readImage(event.target.files[0]); });
 $('#remove-image').addEventListener('click', () => {
   imageSequence += 1; readingImage = false; releasePreview(); selectedFile = null;

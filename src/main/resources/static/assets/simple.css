@@ -75,10 +75,10 @@ body { font-size: 14px; line-height: 1.6; }
 .login-card h1, .login-card h2 { font-size: 22px; margin: 0; }
 .login-submit { margin-top: 24px; justify-content: center; }
 .password-field > .icon-button { top: 2px; right: 3px; width: 44px; height: 44px; }
-.admin-main { padding: 28px 0 40px; }
-.admin-heading { align-items: center; }
-.admin-heading h1 { font-size: 26px; letter-spacing: 0; }
-.admin-heading > .button { min-height: 44px; font-size: 13px; }
+.chef-main { padding: 28px 0 40px; }
+.chef-heading { align-items: center; }
+.chef-heading h1 { font-size: 26px; letter-spacing: 0; }
+.chef-heading > .button { min-height: 44px; font-size: 13px; }
 .stats-grid { margin: 24px 0; gap: 12px; }
 .stat-card { padding: 18px; border-radius: 12px; }
 .stat-card > span { font-size: 13px; }
@@ -101,6 +101,38 @@ body { font-size: 14px; line-height: 1.6; }
 .review-actions textarea { font-size: 16px; min-height: 44px; }
 .review-actions .button { min-height: 44px; }
 .review-result, .review-result .review-note { font-size: 12px; }
+.chef-link .icon { width: 25px; height: 25px; }
+.note-tools { display: flex; gap: 8px; margin-bottom: 8px; }
+.note-tool { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-width: 84px; min-height: 48px; padding: 4px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--green-light); color: var(--green); }
+.note-tool > span { font-family: system-ui, sans-serif; font-size: 30px; font-weight: 600; line-height: 1; }
+.note-tool > small { display: inline; margin: 0; font-size: 12px; line-height: 1.4; color: inherit; }
+.note-tool:hover { border-color: var(--green); }
+.prep-notes { min-width: 0; font-size: 13px; line-height: 1.75; color: #667061; overflow-wrap: anywhere; }
+.prep-section + .prep-section { margin-top: 16px; }
+.prep-section > h5 { margin: 0 0 6px; font: inherit; font-weight: 600; color: var(--ink); }
+.prep-list { margin: 0; padding-left: 21px; }
+ul.prep-list { list-style: disc; }
+ol.prep-list { list-style: decimal; }
+.prep-list > li { padding-left: 3px; margin: 3px 0; }
+.prep-plain { margin: 12px 0 0; white-space: pre-wrap; }
+.prep-plain:first-child { margin-top: 0; }
+.dish-prep { grid-column: 1 / -1; min-width: 0; margin-top: 8px; border-top: 1px solid var(--line); }
+.dish-prep > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 42px; padding: 8px 0 0; font-size: 13px; color: var(--green); cursor: pointer; list-style: none; }
+.dish-prep > .prep-notes { padding: 12px 0 2px; }
+.prep-chevron, .review-chevron { flex-shrink: 0; transition: transform .15s ease; }
+.dish-prep[open] > summary .prep-chevron, .review-entry[open] > summary .review-chevron { transform: rotate(90deg); }
+.dish-prep > summary::-webkit-details-marker, .review-summary::-webkit-details-marker { display: none; }
+.dish-prep > summary:focus-visible, .review-summary:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; border-radius: 8px; }
+.review-list { display: flex; flex-direction: column; gap: 12px; }
+.review-card.review-entry { padding: 0; min-width: 0; }
+.review-summary { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 60px; padding: 16px 20px; cursor: pointer; list-style: none; }
+.review-name { min-width: 0; font-size: 16px; font-weight: 600; line-height: 1.6; overflow-wrap: anywhere; }
+.review-chevron { width: 19px; height: 19px; color: #7e8979; }
+.review-entry[open] > .review-summary { border-bottom: 1px solid var(--line); }
+.review-summary[aria-disabled=true] { cursor: progress; }
+.review-details { padding: 20px; }
+.review-details .snapshot, .review-details .comparison { min-width: 0; }
+.review-details .snapshot > .prep-notes { margin-top: 14px; }
 @media (max-width: 640px) {
   .wrap { width: calc(100% - 32px); }
   .site-header { height: 72px; }
@@ -132,8 +164,8 @@ body { font-size: 14px; line-height: 1.6; }
   .field textarea { min-height: 72px; }
   .login-main { margin-top: 32px; }
   .login-card { padding: 24px; }
-  .admin-main { padding-top: 22px; }
-  .admin-heading h1 { font-size: 24px; }
+  .chef-main { padding-top: 22px; }
+  .chef-heading h1 { font-size: 24px; }
   .header-actions .subtle-link, .header-actions .text-button { font-size: 13px; }
   .stats-grid { gap: 8px; margin: 20px 0; }
   .stat-card { padding: 12px; }
@@ -154,4 +186,6 @@ body { font-size: 14px; line-height: 1.6; }
   .review-actions .field { flex-basis: 100%; }
   .review-actions .button-row { width: 100%; }
   .review-actions .button-row .button { flex: 1; }
+  .review-summary { padding: 14px 16px; min-height: 56px; }
+  .review-details { padding: 16px; }
 }

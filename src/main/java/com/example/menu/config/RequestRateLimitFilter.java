@@ -23,7 +23,7 @@ final class RequestRateLimitFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
         String path = request.getServletPath();
-        boolean login = path.equals("/api/auth/login");
+        boolean login = path.equals("/api/chef/login");
         if (request.getMethod().equals("POST") && (login || path.equals("/api/submissions"))) {
             long duration = (login ? Duration.ofMinutes(1) : Duration.ofHours(1)).toMillis();
             int limit = login ? 10 : 30;

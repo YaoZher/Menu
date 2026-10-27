@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:concurrency;DB_CLOSE_DELAY=-1;LOCK_TIMEOUT=10000",
     "spring.jpa.hibernate.ddl-auto=create-drop",
-    "app.admin.password=Test-password-2026!",
+    "app.chef.password=Test-password-2026!",
     "app.rate-limit.enabled=false"
 })
 @AutoConfigureMockMvc
@@ -68,8 +68,8 @@ class ConcurrentReviewTest {
             assertThat(menu.get(0).path("name").asText()).isEqualTo(dishName);
             assertThat(menu.get(0).path("id").asLong()).isEqualTo(json(approved).path("dishId").asLong());
 
-            mvc.perform(get("/api/admin/submissions").param("status", "ALL")
-                            .with(user("auditor").roles("ADMIN")))
+            mvc.perform(get("/api/chef/submissions").param("status", "ALL")
+                            .with(user("auditor").roles("CHEF")))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.length()").value(1))
                     .andExpect(jsonPath("$[0].status").value("APPROVED"));
@@ -86,10 +86,10 @@ class ConcurrentReviewTest {
         "00000000-0000-0000-0000-000000000000", "ffffffff-ffff-ffff-ffff-ffffffffffff",
         "javascript:alert(1)", "'OR'1'='1"
     })
-    void invalidOrUnknownMediaIdentifiersReturnNotFoundForPublicAndAdmin(String id) throws Exception {
+    void invalidOrUnknownMediaIdentifiersReturnNotFoundForPublicAndChef(String id) throws Exception {
         mvc.perform(get("/media/{id}", id)).andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").isNotEmpty());
-        mvc.perform(get("/media/{id}", id).with(user("auditor").roles("ADMIN")))
+        mvc.perform(get("/media/{id}", id).with(user("auditor").roles("CHEF")))
                 .andExpect(status().isNotFound()).andExpect(jsonPath("$.message").isNotEmpty());
     }
 
@@ -97,8 +97,8 @@ class ConcurrentReviewTest {
                                          CountDownLatch ready, CountDownLatch start) throws Exception {
         ready.countDown();
         if (!start.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Concurrent review start barrier timed out");
-        return mvc.perform(post("/api/admin/submissions/{id}/approve", submissionId)
-                        .with(user(reviewer).roles("ADMIN")).with(csrf())
+        return mvc.perform(post("/api/chef/submissions/{id}/approve", submissionId)
+                        .with(user(reviewer).roles("CHEF")).with(csrf())
                         .contentType(MediaType.APPLICATION_JSON).content("{\"note\":\"并发审核\"}"))
                 .andReturn();
     }

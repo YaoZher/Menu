@@ -1,4 +1,5 @@
 import { $, element, icon, api, writeApi, safeVideoUrl, safeImageUrl, dateText, toast, showError, loading, emptyState, configureDialogs, setDialogBusy, authExpired } from './common.js';
+import { renderNoteContent } from './notes.js';
 
 let submissions = [];
 let activeStatus = 'PENDING';
@@ -6,6 +7,7 @@ let deleteApproval = null;
 let refreshing = false;
 const drafts = new Map();
 const busyIds = new Set();
+const openReviews = new Set();
 const content = $('#reviews-content');
 const deleteDialog = $('#approve-delete-dialog');
 const operations = { CREATE: '新增', UPDATE: '修改', DELETE: '删除' };
@@ -30,7 +32,8 @@ function snapshot(data, side, operation) {
     image.addEventListener('error', () => { image.replaceWith(element('p', 'snapshot-notes', '图片加载失败')); }, { once: true });
     panel.append(image);
   }
-  if (data.notes) panel.append(element('p', 'snapshot-notes', data.notes));
+  const notes = renderNoteContent(data);
+  if (notes) panel.append(notes);
   const video = safeVideoUrl(data.videoUrl);
   if (video) {
     const link = element('a', 'video-link');
@@ -43,19 +46,28 @@ function snapshot(data, side, operation) {
 }
 
 function reviewCard(submission) {
-  const card = element('article', 'review-card');
+  const card = element('details', 'review-card review-entry');
   card.dataset.submissionId = submission.id;
+  card.open = openReviews.has(submission.id);
+  card.addEventListener('toggle', () => {
+    if (card.open) openReviews.add(submission.id); else openReviews.delete(submission.id);
+  });
+  const summary = element('summary', 'review-summary');
+  summary.append(element('span', 'review-name', submission.after?.name || submission.before?.name || '菜品申请'), icon('chevron', 'icon review-chevron'));
+  summary.addEventListener('click', event => { if (busyIds.has(submission.id)) event.preventDefault(); });
+  const details = element('div', 'review-details');
+  card.append(summary, details);
   const heading = element('div', 'review-card-header');
   const titleBlock = element('div');
   const titleRow = element('div', 'review-title-row');
-  titleRow.append(element('span', `pill pill-${String(submission.operation).toLowerCase()}`, operations[submission.operation] || submission.operation), element('h3', '', submission.after?.name || submission.before?.name || '菜品申请'));
+  titleRow.append(element('span', `pill pill-${String(submission.operation).toLowerCase()}`, operations[submission.operation] || submission.operation));
   titleBlock.append(titleRow, element('p', 'review-id', `#${submission.id}`));
   const dateBlock = element('div', 'review-date');
   dateBlock.append(element('div', '', dateText(submission.createdAt, true)), element('span', `pill pill-${String(submission.status).toLowerCase()}`, statuses[submission.status] || submission.status));
   heading.append(titleBlock, dateBlock);
   const comparison = element('div', 'comparison');
   comparison.append(snapshot(submission.before, 'before', submission.operation), snapshot(submission.after, 'after', submission.operation));
-  card.append(heading, comparison);
+  details.append(heading, comparison);
   if (submission.status === 'PENDING') {
     const actions = element('div', 'review-actions');
     const field = element('div', 'field');
@@ -81,13 +93,14 @@ function reviewCard(submission) {
     });
     buttons.append(reject, approve); actions.append(field, buttons);
     const error = element('p', 'form-error review-error'); error.hidden = true; error.setAttribute('role', 'alert');
-    card.append(actions, error);
+    details.append(actions, error);
   } else {
     const result = element('div', 'review-result');
-    result.append(element('span', '', `审核：${submission.reviewedBy || '管理员'}`), element('span', '', dateText(submission.reviewedAt, true) || '—'));
+    result.append(element('span', '', `审核：${submission.reviewedBy || '厨师'}`), element('span', '', dateText(submission.reviewedAt, true) || '—'));
     if (submission.reviewNote) result.append(element('p', 'review-note', `审核备注：${submission.reviewNote}`));
-    card.append(result);
+    details.append(result);
   }
+  if (busyIds.has(submission.id)) card.querySelectorAll('button, textarea').forEach(control => { control.disabled = true; });
   return card;
 }
 
@@ -114,7 +127,7 @@ async function loadReviews() {
   $('#refresh-reviews').disabled = true;
   loading(content, '加载中…');
   try {
-    const data = await api('/api/admin/submissions?status=ALL');
+    const data = await api('/api/chef/submissions?status=ALL');
     if (!Array.isArray(data)) throw new Error('记录读取失败，请重试。');
     submissions = data; renderReviews();
   } catch (error) {
@@ -127,14 +140,18 @@ async function loadReviews() {
 async function decide(submission, decision, card, dialog = null) {
   if (busyIds.has(submission.id)) return;
   busyIds.add(submission.id);
+  card.setAttribute('aria-busy', 'true');
+  $('.review-summary', card).setAttribute('aria-disabled', 'true');
+  document.querySelectorAll('[data-status], #refresh-reviews').forEach(control => { control.disabled = true; });
   const errorNode = dialog ? $('#approve-delete-error') : $('.review-error', card);
   showError(errorNode, '');
   card.querySelectorAll('button, textarea').forEach(control => { control.disabled = true; });
   if (dialog) { setDialogBusy(dialog, true); $('#approve-delete-submit').textContent = '处理中…'; }
   try {
-    const updated = await writeApi(`/api/admin/submissions/${encodeURIComponent(submission.id)}/${decision}`, { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note: (drafts.get(submission.id) || '').trim() }) });
+    const updated = await writeApi(`/api/chef/submissions/${encodeURIComponent(submission.id)}/${decision}`, { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note: (drafts.get(submission.id) || '').trim() }) });
     if (dialog) dialog.close();
     drafts.delete(submission.id);
+    openReviews.delete(submission.id);
     const index = submissions.findIndex(item => item.id === submission.id);
     if (index !== -1 && updated?.id) submissions[index] = updated;
     toast(decision === 'approve' ? '已通过' : '已驳回');
@@ -143,6 +160,10 @@ async function decide(submission, decision, card, dialog = null) {
     if (!authExpired(error)) showError(errorNode, error.message);
   } finally {
     busyIds.delete(submission.id);
+    card.removeAttribute('aria-busy');
+    $('.review-summary', card).removeAttribute('aria-disabled');
+    document.querySelectorAll('[data-status]').forEach(control => { control.disabled = busyIds.size > 0; });
+    $('#refresh-reviews').disabled = refreshing || busyIds.size > 0;
     card.querySelectorAll('button, textarea').forEach(control => { control.disabled = false; });
     if (dialog) { setDialogBusy(dialog, false); $('#approve-delete-submit').textContent = '确认删除'; }
   }
@@ -162,7 +183,7 @@ $('#logout').addEventListener('click', async () => {
   const button = $('#logout');
   if (button.disabled) return;
   button.disabled = true; button.textContent = '退出中…';
-  try { await writeApi('/api/auth/logout'); location.assign('/login'); }
+  try { await writeApi('/api/chef/logout'); location.assign('/chef/login'); }
   catch (error) {
     if (!authExpired(error)) toast('退出失败', error.message);
     button.disabled = false; button.textContent = '退出';
@@ -171,8 +192,8 @@ $('#logout').addEventListener('click', async () => {
 
 async function initialize() {
   try {
-    const user = await api('/api/admin/me');
-    $('#admin-identity').textContent = user?.username || '管理员';
+    const user = await api('/api/chef/me');
+    $('#chef-identity').textContent = user?.username || '厨师';
     await loadReviews();
   } catch (error) {
     if (authExpired(error)) return;

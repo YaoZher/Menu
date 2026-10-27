@@ -2,22 +2,22 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f6f5ef">
-  <title>审核 · 一方菜单</title>
+  <title>厨师审核 · 一方菜单</title>
   <link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/style.css">
   <link rel="stylesheet" href="/assets/simple.css">
-  <script type="module" src="/assets/admin.js"></script>
+  <script type="module" src="/assets/chef.js"></script>
 </head>
-<body class="admin-page">
+<body class="chef-page">
   <a class="skip-link" href="#reviews">跳到审核列表</a>
   <header class="site-header wrap">
     <a class="brand" href="/"><img src="/assets/mark.svg" width="38" height="38" alt=""><span>一方菜单</span></a>
-    <div class="header-actions"><a class="subtle-link" href="/">菜单</a><span class="admin-identity" id="admin-identity"></span><button class="text-button" id="logout">退出</button></div>
+    <div class="header-actions"><a class="subtle-link" href="/">菜单</a><span class="chef-identity" id="chef-identity"></span><button class="text-button" id="logout">退出</button></div>
   </header>
-  <main class="admin-main wrap">
-    <div class="admin-heading"><div><h1>审核</h1></div><button class="button secondary" id="refresh-reviews"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#refresh"/></svg>刷新</button></div>
+  <main class="chef-main wrap">
+    <div class="chef-heading"><div><h1>审核</h1></div><button class="button secondary" id="refresh-reviews"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#refresh"/></svg>刷新</button></div>
     <div class="stats-grid" aria-label="审核统计">
       <div class="stat-card featured"><span>待审核</span><strong id="stat-pending">—</strong></div>
       <div class="stat-card"><span>已通过</span><strong id="stat-approved">—</strong></div>

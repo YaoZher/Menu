@@ -24,9 +24,9 @@ public class MediaController {
             imageId = UUID.fromString(id);
             if (!imageId.toString().equalsIgnoreCase(id)) throw new IllegalArgumentException();
         } catch (IllegalArgumentException exception) { throw ApiException.notFound("图片不存在"); }
-        boolean administrator = authentication != null && authentication.isAuthenticated()
-                && authentication.getAuthorities().stream().anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
-        ImageService.ImageContent image = images.read(imageId, administrator);
+        boolean chef = authentication != null && authentication.isAuthenticated()
+                && authentication.getAuthorities().stream().anyMatch(a -> "ROLE_CHEF".equals(a.getAuthority()));
+        ImageService.ImageContent image = images.read(imageId, chef);
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(image.contentType()))
                 .contentLength(image.bytes().length)

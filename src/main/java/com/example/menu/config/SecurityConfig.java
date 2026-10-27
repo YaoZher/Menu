@@ -25,40 +25,40 @@ public class SecurityConfig {
 
     @Bean
     UserDetailsService users(PasswordEncoder encoder,
-            @Value("${app.admin.username}") String username,
-            @Value("${app.admin.password}") String password) {
+            @Value("${app.chef.username}") String username,
+            @Value("${app.chef.password}") String password) {
         if (username.isBlank() || !username.equals(username.strip()) || username.length() > 255
                 || username.codePoints().anyMatch(Character::isISOControl)) {
-            throw new IllegalStateException("MENU_ADMIN_USERNAME 不能有首尾空格、控制字符或超过 255 个字符。");
+            throw new IllegalStateException("MENU_CHEF_USERNAME 不能有首尾空格、控制字符或超过 255 个字符。");
         }
         if (password.length() < 12 || password.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72) {
-            throw new IllegalStateException("请设置 MENU_ADMIN_USERNAME 和 MENU_ADMIN_PASSWORD；密码至少 12 个字符，UTF-8 编码不超过 72 字节。");
+            throw new IllegalStateException("请设置 MENU_CHEF_USERNAME 和 MENU_CHEF_PASSWORD；密码至少 12 个字符，UTF-8 编码不超过 72 字节。");
         }
         return new InMemoryUserDetailsManager(User.withUsername(username)
-                .password(encoder.encode(password)).roles("ADMIN").build());
+                .password(encoder.encode(password)).roles("CHEF").build());
     }
 
     @Bean
     SecurityFilterChain security(HttpSecurity http, ObjectMapper mapper,
             @Value("${app.rate-limit.enabled:true}") boolean rateLimitEnabled) throws Exception {
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/admin/**", "/admin", "/admin/", "/admin.html").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.GET, "/", "/index.html", "/login", "/login.html", "/assets/**", "/favicon.ico", "/api/menu", "/api/csrf", "/media/**").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/submissions", "/api/auth/login", "/api/auth/logout").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/submissions", "/api/chef/login", "/api/chef/logout").permitAll()
+                .requestMatchers("/api/chef/**", "/chef", "/chef/", "/chef.html").hasRole("CHEF")
+                .requestMatchers(HttpMethod.GET, "/", "/index.html", "/chef/login", "/login.html", "/assets/**", "/favicon.ico", "/api/menu", "/api/csrf", "/media/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().denyAll());
         http.requestCache(cache -> cache.requestCache(new NullRequestCache()));
-        http.formLogin(login -> login.loginPage("/login").loginProcessingUrl("/api/auth/login")
+        http.formLogin(login -> login.loginPage("/chef/login").loginProcessingUrl("/api/chef/login")
                 .successHandler((request, response, auth) -> json(mapper, response, 200, Map.of("username", auth.getName())))
                 .failureHandler((request, response, error) -> json(mapper, response, 401, Map.of("message", "账号或密码不正确"))));
-        http.logout(logout -> logout.logoutUrl("/api/auth/logout")
+        http.logout(logout -> logout.logoutUrl("/api/chef/logout")
                 .invalidateHttpSession(true).deleteCookies("JSESSIONID")
                 .logoutSuccessHandler((request, response, auth) -> json(mapper, response, 200, Map.of("message", "已退出登录"))));
         http.exceptionHandling(errors -> errors
                 .authenticationEntryPoint((request, response, error) -> {
                     if (request.getRequestURI().startsWith("/api/")) {
-                        json(mapper, response, 401, Map.of("message", "请先登录审核后台"));
-                    } else { response.sendRedirect("/login"); }
+                        json(mapper, response, 401, Map.of("message", "请先登录厨师后台"));
+                    } else { response.sendRedirect("/chef/login"); }
                 })
                 .accessDeniedHandler((request, response, error) -> json(mapper, response, 403,
                         Map.of("message", "请求验证已失效或无权访问，请刷新页面后重试"))));

@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:menutest;DB_CLOSE_DELAY=-1",
     "spring.jpa.hibernate.ddl-auto=create-drop",
-    "app.admin.password=Test-password-2026!",
+    "app.chef.password=Test-password-2026!",
     "app.rate-limit.enabled=false"
 })
 @AutoConfigureMockMvc
@@ -35,16 +35,37 @@ class MenuIntegrationTest {
 
     @Test void publicReadsAndPrivateReviewEndpoints() throws Exception {
         mvc.perform(get("/api/menu")).andExpect(status().isOk());
+        mvc.perform(get("/chef/login")).andExpect(status().isOk()).andExpect(forwardedUrl("/login.html"));
+        mvc.perform(get("/api/chef/submissions")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/chef")).andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/chef/login"));
+        mvc.perform(get("/chef.html")).andExpect(status().is3xxRedirection());
+        mvc.perform(get("/chef").with(chef())).andExpect(status().isOk()).andExpect(forwardedUrl("/chef.html"));
+        mvc.perform(get("/api/chef/me").with(user("visitor").roles("USER"))).andExpect(status().isForbidden());
+    }
+
+    @Test void formerAdminIdentityAndRoutesNoLongerGrantAccess() throws Exception {
+        mvc.perform(post("/api/chef/login").with(csrf())
+                .param("username", "admin").param("password", "Test-password-2026!"))
+                .andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/chef/me").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isForbidden());
+        for (String route : new String[] { "/admin", "/admin/", "/admin.html" }) {
+            mvc.perform(get(route)).andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/chef/login"));
+            mvc.perform(get(route).with(chef())).andExpect(status().isForbidden());
+        }
         mvc.perform(get("/api/admin/submissions")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/admin")).andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/login"));
-        mvc.perform(get("/admin.html")).andExpect(status().is3xxRedirection());
-        mvc.perform(get("/api/admin/me").with(user("visitor").roles("USER"))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/submissions").with(chef())).andExpect(status().isForbidden());
+        mvc.perform(post("/api/auth/login").with(csrf())
+                .param("username", "chef").param("password", "Test-password-2026!"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test void csrfRequiredForAnonymousSubmissionsAndReview() throws Exception {
         mvc.perform(multipart("/api/submissions").param("operation", "CREATE").param("name", "豆腐"))
                 .andExpect(status().isForbidden());
-        mvc.perform(post("/api/admin/submissions/1/approve").with(admin()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+        mvc.perform(post("/api/chef/submissions/1/approve").with(chef()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden());
+        mvc.perform(post("/api/chef/login").param("username", "chef").param("password", "Test-password-2026!"))
                 .andExpect(status().isForbidden());
     }
 
@@ -52,19 +73,19 @@ class MenuIntegrationTest {
         MvcResult csrfResult = mvc.perform(get("/api/csrf")).andExpect(status().isOk()).andReturn();
         MockHttpSession session = (MockHttpSession) csrfResult.getRequest().getSession(false);
         JsonNode token = json(csrfResult);
-        mvc.perform(post("/api/auth/login").session(session)
+        mvc.perform(post("/api/chef/login").session(session)
                 .header(token.path("headerName").asText(), token.path("token").asText())
-                .param("username", "admin").param("password", "Test-password-2026!"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.username").value("admin"));
-        mvc.perform(get("/api/admin/me").session(session)).andExpect(status().isOk());
+                .param("username", "chef").param("password", "Test-password-2026!"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.username").value("chef"));
+        mvc.perform(get("/api/chef/me").session(session)).andExpect(status().isOk());
         JsonNode refreshed = json(mvc.perform(get("/api/csrf").session(session)).andReturn());
-        mvc.perform(post("/api/auth/logout").session(session)
+        mvc.perform(post("/api/chef/logout").session(session)
                 .header(refreshed.path("headerName").asText(), refreshed.path("token").asText())).andExpect(status().isOk());
-        mvc.perform(get("/api/admin/me")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/chef/me")).andExpect(status().isUnauthorized());
     }
 
     @Test void wrongPasswordReturnsJsonWithoutLoggingIn() throws Exception {
-        mvc.perform(post("/api/auth/login").with(csrf()).param("username", "admin").param("password", "wrong"))
+        mvc.perform(post("/api/chef/login").with(csrf()).param("username", "chef").param("password", "wrong"))
                 .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.message").exists());
     }
 
@@ -80,7 +101,7 @@ class MenuIntegrationTest {
     @Test void rejectedSubmissionNeverEntersMenu() throws Exception {
         String name = "驳回-" + System.nanoTime();
         long id = submit(create(name));
-        mvc.perform(post("/api/admin/submissions/{id}/reject", id).with(admin()).with(csrf())
+        mvc.perform(post("/api/chef/submissions/{id}/reject", id).with(chef()).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"note\":\"请补充菜品信息\"}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("REJECTED"))
                 .andExpect(jsonPath("$.reviewedBy").value("reviewer"));
@@ -94,7 +115,7 @@ class MenuIntegrationTest {
         String updated = original + "改";
         long edit = submit(change("UPDATE", dish).param("name", updated).param("notes", "少盐"));
         assertThat(findDish(original)).isNotNull();
-        JsonNode beforeReview = json(mvc.perform(get("/api/admin/submissions?status=ALL").with(admin())).andReturn());
+        JsonNode beforeReview = json(mvc.perform(get("/api/chef/submissions?status=ALL").with(chef())).andReturn());
         JsonNode application = null;
         for (JsonNode n : beforeReview) if (n.path("id").asLong() == edit) application = n;
         assertThat(application).isNotNull();
@@ -138,12 +159,13 @@ class MenuIntegrationTest {
         String name = "带图-" + System.nanoTime();
         long id = submit(create(name).file(new MockMultipartFile("image", "dish.png", "image/png", image.toByteArray()))
                 .param("imageAction", "REPLACE"));
-        JsonNode all = json(mvc.perform(get("/api/admin/submissions?status=ALL").with(admin())).andReturn());
+        JsonNode all = json(mvc.perform(get("/api/chef/submissions?status=ALL").with(chef())).andReturn());
         String imageUrl = null;
         for (JsonNode n : all) if (n.path("id").asLong() == id) imageUrl = n.path("after").path("imageUrl").asText();
         assertThat(imageUrl).startsWith("/media/");
         mvc.perform(get(imageUrl)).andExpect(status().isNotFound());
-        mvc.perform(get(imageUrl).with(admin())).andExpect(status().isOk()).andExpect(content().contentType(MediaType.IMAGE_PNG));
+        mvc.perform(get(imageUrl).with(user("admin").roles("ADMIN"))).andExpect(status().isNotFound());
+        mvc.perform(get(imageUrl).with(chef())).andExpect(status().isOk()).andExpect(content().contentType(MediaType.IMAGE_PNG));
         approve(id, 200);
         mvc.perform(get(imageUrl)).andExpect(status().isOk()).andExpect(header().string("X-Content-Type-Options", "nosniff"));
         JsonNode dish = findDish(name);
@@ -170,14 +192,14 @@ class MenuIntegrationTest {
                 .param("expectedVersion", dish.path("version").asText());
         return request;
     }
-    private SecurityMockMvcRequestPostProcessors.UserRequestPostProcessor admin() { return user("reviewer").roles("ADMIN"); }
+    private SecurityMockMvcRequestPostProcessors.UserRequestPostProcessor chef() { return user("reviewer").roles("CHEF"); }
     private JsonNode json(MvcResult result) throws Exception { return mapper.readTree(result.getResponse().getContentAsByteArray()); }
     private long submit(MockHttpServletRequestBuilder request) throws Exception {
         MvcResult result = mvc.perform(request.with(csrf())).andExpect(status().is2xxSuccessful()).andReturn();
         return json(result).path("id").asLong();
     }
     private void approve(long id, int statusCode) throws Exception {
-        mvc.perform(post("/api/admin/submissions/{id}/approve", id).with(admin()).with(csrf())
+        mvc.perform(post("/api/chef/submissions/{id}/approve", id).with(chef()).with(csrf())
                 .contentType(MediaType.APPLICATION_JSON).content("{\"note\":\"已核对\"}"))
                 .andExpect(status().is(statusCode));
     }

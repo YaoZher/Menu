@@ -19,7 +19,8 @@ public class Submission {
         @AttributeOverride(name = "name", column = @Column(name = "before_name", length = 80)),
         @AttributeOverride(name = "imageId", column = @Column(name = "before_image_id")),
         @AttributeOverride(name = "videoUrl", column = @Column(name = "before_video_url", length = 2048)),
-        @AttributeOverride(name = "notes", column = @Column(name = "before_notes", length = 2000))
+        @AttributeOverride(name = "notes", column = @Column(name = "before_notes", length = 2000)),
+        @AttributeOverride(name = "noteLines", column = @Column(name = "before_note_lines"))
     })
     private DishSnapshot beforeSnapshot;
     @Embedded
@@ -27,7 +28,8 @@ public class Submission {
         @AttributeOverride(name = "name", column = @Column(name = "after_name", length = 80)),
         @AttributeOverride(name = "imageId", column = @Column(name = "after_image_id")),
         @AttributeOverride(name = "videoUrl", column = @Column(name = "after_video_url", length = 2048)),
-        @AttributeOverride(name = "notes", column = @Column(name = "after_notes", length = 2000))
+        @AttributeOverride(name = "notes", column = @Column(name = "after_notes", length = 2000)),
+        @AttributeOverride(name = "noteLines", column = @Column(name = "after_note_lines"))
     })
     private DishSnapshot afterSnapshot;
     @Column(name = "created_at", nullable = false)

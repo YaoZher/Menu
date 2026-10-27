@@ -2,9 +2,9 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f6f5ef">
-  <title>管理员登录 · 一方菜单</title>
+  <title>厨师登录 · 一方菜单</title>
   <link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/style.css">
   <link rel="stylesheet" href="/assets/simple.css">
@@ -14,11 +14,11 @@
   <header class="site-header wrap"><a class="brand" href="/"><img src="/assets/mark.svg" width="38" height="38" alt=""><span>一方菜单</span></a><a class="subtle-link" href="/">返回菜单</a></header>
   <main class="login-main">
     <section class="login-card" aria-labelledby="login-title">
-      <h2 id="login-title">管理员登录</h2>
+      <h2 id="login-title">厨师登录</h2>
       <p class="notice" id="login-notice" hidden>登录已过期，请重新登录。</p>
       <form id="login-form">
         <div class="form-stack">
-          <div class="field"><label for="username">账号</label><input id="username" name="username" autocomplete="username" required maxlength="100"></div>
+          <div class="field"><label for="username">账号</label><input id="username" name="username" value="chef" autocomplete="username" required maxlength="100"></div>
           <div class="field"><label for="password">密码</label><div class="password-field"><input id="password" name="password" type="password" autocomplete="current-password" required maxlength="256"><button type="button" id="password-toggle" class="icon-button" aria-label="显示密码" aria-pressed="false"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#eye"/></svg></button></div></div>
         </div>
         <p id="login-error" class="form-error" role="alert" hidden></p>

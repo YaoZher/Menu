@@ -28,7 +28,7 @@ export async function api(url, options = {}) {
     const fallback = response.status === 401 ? '登录已过期，请重新登录。' : response.status === 403 ? '页面验证已过期，请刷新页面后重试。' : response.status === 409 ? '这道菜已经发生变化，请刷新后重新提交。' : '操作未完成，请稍后重试。';
     throw new ApiError(body?.message || fallback, response.status);
   }
-  if (response.redirected && new URL(response.url).pathname === '/login') throw new ApiError('登录已过期，请重新登录。', 401);
+  if (response.redirected && new URL(response.url).pathname === '/chef/login') throw new ApiError('登录已过期，请重新登录。', 401);
   return body;
 }
 export async function writeApi(url, options = {}) {
@@ -110,6 +110,6 @@ export function setDialogBusy(dialog, busy) {
   dialog.querySelectorAll('button, input, textarea').forEach(control => { control.disabled = busy; });
 }
 export function authExpired(error) {
-  if (error.status === 401 || error.status === 403) { location.assign('/login?expired=1'); return true; }
+  if (error.status === 401 || error.status === 403) { location.assign('/chef/login?expired=1'); return true; }
   return false;
 }

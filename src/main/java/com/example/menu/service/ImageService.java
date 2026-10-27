@@ -87,8 +87,8 @@ public class ImageService {
     }
 
     @Transactional(readOnly = true)
-    public ImageContent read(UUID id, boolean administrator) {
-        if (!administrator && !dishes.existsByImageId(id)) throw ApiException.notFound("图片不存在");
+    public ImageContent read(UUID id, boolean chef) {
+        if (!chef && !dishes.existsByImageId(id)) throw ApiException.notFound("图片不存在");
         StoredImage image = images.findById(id).orElseThrow(() -> ApiException.notFound("图片不存在"));
         return new ImageContent(image.getContent(), image.getContentType());
     }
