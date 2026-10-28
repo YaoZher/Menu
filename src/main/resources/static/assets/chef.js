@@ -1,10 +1,11 @@
-import { $, element, icon, api, writeApi, safeVideoUrl, safeImageUrl, dateText, toast, showError, loading, emptyState, configureDialogs, setDialogBusy, authExpired } from './common.js';
+import { $, element, icon, api, writeApi, safeVideoUrl, safeImageUrl, dateText, toast, showError, loading, emptyState, setDialogBusy, authExpired } from './common.js';
 import { renderNoteContent } from './notes.js';
 
 let submissions = [];
 let activeStatus = 'PENDING';
 let deleteApproval = null;
 let refreshing = false;
+let initialized = false;
 const drafts = new Map();
 const busyIds = new Set();
 const openReviews = new Set();
@@ -12,7 +13,6 @@ const content = $('#reviews-content');
 const deleteDialog = $('#approve-delete-dialog');
 const operations = { CREATE: '新增', UPDATE: '修改', DELETE: '删除' };
 const statuses = { PENDING: '待审核', APPROVED: '已通过', REJECTED: '已驳回' };
-configureDialogs();
 
 function snapshot(data, side, operation) {
   const after = side === 'after';
@@ -121,7 +121,7 @@ function renderReviews() {
   content.replaceChildren(list);
 }
 
-async function loadReviews() {
+export async function loadReviews() {
   if (refreshing) return;
   refreshing = true;
   $('#refresh-reviews').disabled = true;
@@ -156,6 +156,7 @@ async function decide(submission, decision, card, dialog = null) {
     if (index !== -1 && updated?.id) submissions[index] = updated;
     toast(decision === 'approve' ? '已通过' : '已驳回');
     if (updated?.id) renderReviews(); else await loadReviews();
+    document.dispatchEvent(new CustomEvent('menu:changed'));
   } catch (error) {
     if (!authExpired(error)) showError(errorNode, error.message);
   } finally {
@@ -169,36 +170,17 @@ async function decide(submission, decision, card, dialog = null) {
   }
 }
 
-document.querySelectorAll('[data-status]').forEach(button => button.addEventListener('click', () => {
-  activeStatus = button.dataset.status;
-  document.querySelectorAll('[data-status]').forEach(tab => { const active = tab === button; tab.classList.toggle('active', active); tab.setAttribute('aria-pressed', String(active)); });
-  renderReviews();
-}));
-$('#refresh-reviews').addEventListener('click', loadReviews);
-$('#approve-delete-form').addEventListener('submit', event => {
-  event.preventDefault();
-  if (deleteApproval) decide(deleteApproval.submission, 'approve', deleteApproval.card, deleteDialog);
-});
-$('#logout').addEventListener('click', async () => {
-  const button = $('#logout');
-  if (button.disabled) return;
-  button.disabled = true; button.textContent = '退出中…';
-  try { await writeApi('/api/chef/logout'); location.assign('/chef/login'); }
-  catch (error) {
-    if (!authExpired(error)) toast('退出失败', error.message);
-    button.disabled = false; button.textContent = '退出';
-  }
-});
-
-async function initialize() {
-  try {
-    const user = await api('/api/chef/me');
-    $('#chef-identity').textContent = user?.username || '厨师';
-    await loadReviews();
-  } catch (error) {
-    if (authExpired(error)) return;
-    content.setAttribute('aria-busy', 'false');
-    content.replaceChildren(emptyState({ title: '连接失败', message: error.message, actionText: '重试', action: initialize, symbol: 'refresh' }));
-  }
+export function initializeReviews() {
+  if (initialized) return;
+  initialized = true;
+  document.querySelectorAll('[data-status]').forEach(button => button.addEventListener('click', () => {
+    activeStatus = button.dataset.status;
+    document.querySelectorAll('[data-status]').forEach(tab => { const active = tab === button; tab.classList.toggle('active', active); tab.setAttribute('aria-pressed', String(active)); });
+    renderReviews();
+  }));
+  $('#refresh-reviews').addEventListener('click', loadReviews);
+  $('#approve-delete-form').addEventListener('submit', event => {
+    event.preventDefault();
+    if (deleteApproval) decide(deleteApproval.submission, 'approve', deleteApproval.card, deleteDialog);
+  });
 }
-initialize();

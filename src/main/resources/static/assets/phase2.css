@@ -1,0 +1,35 @@
+/* Shared chef workspace. */
+.chef-session .site-header { display: grid; grid-template-columns: 1fr auto 1fr; }
+.chef-session .header-actions { justify-content: flex-end; }
+.chef-nav { display: flex; align-items: center; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 13px; background: var(--white); }
+.chef-nav a { display: flex; align-items: center; justify-content: center; min-height: 42px; padding: 8px 20px; border-radius: 9px; font-size: 14px; white-space: nowrap; transition: color .16s, background-color .16s; }
+.chef-nav a:hover { background: var(--green-light); }
+.chef-nav a[aria-current="page"] { color: white; background: var(--green); }
+.app-view { outline: none; }
+.app-view.view-enter { animation: view-enter .18s ease-out; }
+@keyframes view-enter { from { opacity: .35; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.session-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; min-height: 220px; color: var(--muted); }
+.session-status p { font-size: 14px; }
+.page-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.page-heading h1 { margin: 0; font-size: 26px; line-height: 1.5; letter-spacing: 0; }
+.page-count { font-size: 15px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+.shopping-main { padding: 28px 0 40px; }
+.shopping-add-button { margin-left: auto; }
+.card-actions .shopping-add-button { color: var(--green); }
+.card-actions .shopping-add-button.is-selected { color: var(--green); background: var(--green-light); }
+.shopping-add-button .icon { width: 21px; height: 21px; }
+.shopping-add-button.is-selected:disabled { opacity: 1; cursor: default; }
+@media (max-width: 700px) {
+  .chef-session .site-header { height: auto; min-height: 72px; grid-template-columns: 1fr auto; row-gap: 4px; padding-top: 10px; padding-bottom: 12px; }
+  .chef-session .brand { grid-column: 1; grid-row: 1; }
+  .chef-session .header-actions { grid-column: 2; grid-row: 1; }
+  .chef-nav { grid-column: 1 / -1; grid-row: 2; width: 100%; gap: 4px; border-radius: 12px; }
+  .chef-nav a { flex: 1; min-width: 0; min-height: 42px; padding-inline: 10px; font-size: 13px; }
+  .page-heading { margin-bottom: 20px; }
+  .page-heading h1 { font-size: 24px; }
+  .shopping-main { padding-top: 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-view.view-enter { animation: none; }
+  .chef-nav a { transition: none; }
+}

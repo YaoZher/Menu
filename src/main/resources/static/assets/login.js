@@ -25,7 +25,7 @@ form.addEventListener('submit', async event => {
   submit.textContent = '登录中…';
   try {
     await writeApi('/api/chef/login', { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
-    location.assign('/chef');
+    location.assign('/');
   } catch (error) {
     showError($('#login-error'), error.status === 401 ? '账号或密码错误。' : error.message);
     $('#password').value = '';

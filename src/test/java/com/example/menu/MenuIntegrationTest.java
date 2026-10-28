@@ -44,7 +44,7 @@ class MenuIntegrationTest {
         mvc.perform(get("/api/chef/submissions")).andExpect(status().isUnauthorized());
         mvc.perform(get("/chef")).andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/chef/login"));
         mvc.perform(get("/chef.html")).andExpect(status().is3xxRedirection());
-        mvc.perform(get("/chef").with(chef())).andExpect(status().isOk()).andExpect(forwardedUrl("/chef.html"));
+        mvc.perform(get("/chef").with(chef())).andExpect(status().isOk()).andExpect(forwardedUrl("/index.html"));
         mvc.perform(get("/api/chef/me").with(user("visitor").roles("USER"))).andExpect(status().isForbidden());
     }
 

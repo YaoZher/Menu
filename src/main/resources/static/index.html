@@ -8,18 +8,27 @@
   <link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/style.css">
   <link rel="stylesheet" href="/assets/simple.css">
-  <script type="module" src="/assets/menu.js"></script>
+  <link rel="stylesheet" href="/assets/phase2.css">
+  <link rel="stylesheet" href="/assets/shopping.css">
+  <script type="module" src="/assets/app.js"></script>
 </head>
 <body class="menu-page">
-  <a class="skip-link" href="#menu">跳到菜单</a>
+  <a class="skip-link" id="skip-content" href="#menu">跳到内容</a>
   <header class="site-header wrap">
-    <a class="brand" href="/" aria-label="菜单首页"><img src="/assets/mark.svg" width="32" height="32" alt=""><span>菜单</span></a>
+    <a class="brand" href="/" data-view="menu" aria-label="菜单首页"><img src="/assets/mark.svg" width="32" height="32" alt=""><span>菜单</span></a>
+    <nav class="chef-nav" id="chef-nav" aria-label="厨师导航" hidden>
+      <a href="/" data-view="menu" aria-current="page">菜单</a>
+      <a href="/shopping" data-view="shopping">待采购</a>
+      <a href="/chef" data-view="review">审核</a>
+    </nav>
     <div class="header-actions">
-      <a class="icon-button chef-link" href="/chef" aria-label="厨师审核" title="厨师审核"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#chef"/></svg></a>
-      <button type="button" class="add-button" id="add-dish" aria-label="添加菜品" title="添加菜品"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#plus"/></svg></button>
+      <a class="icon-button chef-link" id="chef-login" href="/chef/login" aria-label="厨师登录" title="厨师登录" hidden><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#chef"/></svg></a>
+      <button type="button" class="text-button" id="logout" hidden>退出</button>
+      <button type="button" class="add-button" id="add-dish" aria-label="添加菜品" title="添加菜品" disabled><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#plus"/></svg></button>
     </div>
   </header>
-  <main class="menu-section wrap" id="menu" aria-label="菜单">
+  <div class="session-status wrap" id="session-status" role="alert" hidden><p id="session-error"></p><button class="button secondary" type="button" id="retry-session">重试</button></div>
+  <main class="menu-section wrap app-view" id="menu" aria-label="菜单" tabindex="-1">
     <div class="menu-toolbar">
       <label class="search-field"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#search"/></svg><input type="search" id="menu-search" placeholder="搜索菜品" aria-label="搜索菜名或备注" maxlength="100"></label>
       <div class="filter-tabs" role="group" aria-label="筛选菜单">
@@ -29,6 +38,26 @@
       </div>
     </div>
     <div id="menu-content" aria-live="polite" aria-busy="true"><div class="loading-state"><span class="spinner"></span><span class="visually-hidden">加载中</span></div></div>
+  </main>
+  <main class="shopping-main wrap app-view" id="shopping-view" aria-labelledby="shopping-heading" tabindex="-1" hidden>
+    <div class="page-heading"><h1 id="shopping-heading">待采购 <span id="shopping-count" class="page-count">0</span></h1><button type="button" class="icon-button" id="refresh-shopping" aria-label="刷新待采购" title="刷新"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#refresh"/></svg></button></div>
+    <div id="shopping-content" aria-live="polite" aria-busy="false"></div>
+  </main>
+  <main class="chef-main wrap app-view" id="review-view" aria-label="审核" tabindex="-1" hidden>
+    <div class="chef-heading"><div><h1>审核</h1></div><button type="button" class="icon-button" id="refresh-reviews" aria-label="刷新审核" title="刷新"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#refresh"/></svg></button></div>
+    <div class="stats-grid" aria-label="审核统计">
+      <div class="stat-card featured"><span>待审核</span><strong id="stat-pending">—</strong></div>
+      <div class="stat-card"><span>已通过</span><strong id="stat-approved">—</strong></div>
+      <div class="stat-card"><span>已驳回</span><strong id="stat-rejected">—</strong></div>
+    </div>
+    <section id="reviews" aria-labelledby="reviews-heading">
+      <div class="review-toolbar">
+        <h2 id="reviews-heading" class="visually-hidden">提交记录</h2>
+        <div class="filter-tabs review-tabs" role="group" aria-label="筛选审核状态"><button class="filter-button active" data-status="PENDING" aria-pressed="true">待审核</button><button class="filter-button" data-status="APPROVED" aria-pressed="false">已通过</button><button class="filter-button" data-status="REJECTED" aria-pressed="false">已驳回</button><button class="filter-button" data-status="ALL" aria-pressed="false">全部</button></div>
+        <span id="review-count" class="muted-text"></span>
+      </div>
+      <div id="reviews-content" aria-live="polite" aria-busy="false"></div>
+    </section>
   </main>
   <dialog id="dish-dialog" class="dialog dish-dialog" aria-labelledby="dish-dialog-title">
     <form id="dish-form" novalidate>
@@ -50,9 +79,17 @@
   <dialog id="delete-dialog" class="dialog small-dialog" aria-labelledby="delete-title">
     <form id="delete-form">
       <div class="dialog-header"><h2 id="delete-title">申请删除？</h2><button type="button" class="icon-button" data-close="delete-dialog" aria-label="关闭"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#close"/></svg></button></div>
-      <p class="dialog-intro">「<strong id="delete-dish-name"></strong>」将在审核通过后删除。</p>
+      <p class="dialog-intro" id="delete-description">「<strong id="delete-dish-name"></strong>」将在审核通过后删除。</p>
       <p class="form-error" id="delete-error" role="alert" hidden></p>
       <div class="dialog-footer"><button type="button" class="button secondary" data-close="delete-dialog">取消</button><button type="submit" id="delete-submit" class="button danger">提交审核</button></div>
+    </form>
+  </dialog>
+  <dialog id="approve-delete-dialog" class="dialog small-dialog" aria-labelledby="approve-delete-title">
+    <form id="approve-delete-form">
+      <div class="dialog-header"><h2 id="approve-delete-title">通过删除申请？</h2><button class="icon-button" type="button" data-close="approve-delete-dialog" aria-label="关闭"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#close"/></svg></button></div>
+      <p class="dialog-intro">「<strong id="approve-delete-name"></strong>」将从菜单移除。</p>
+      <p id="approve-delete-error" class="form-error" role="alert" hidden></p>
+      <div class="dialog-footer"><button class="button secondary" type="button" data-close="approve-delete-dialog">取消</button><button class="button danger" type="submit" id="approve-delete-submit">确认删除</button></div>
     </form>
   </dialog>
   <div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>

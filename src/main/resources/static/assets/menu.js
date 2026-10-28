@@ -1,4 +1,4 @@
-import { $, element, icon, api, writeApi, safeVideoUrl, safeImageUrl, toast, showError, loading, emptyState, configureDialogs, setDialogBusy } from './common.js';
+import { $, element, icon, api, writeApi, safeVideoUrl, safeImageUrl, toast, showError, loading, emptyState, setDialogBusy, authExpired } from './common.js';
 import { getNoteLines, renderNoteContent, insertNoteMarker } from './notes.js';
 import { ImageValidationError, prepareUploadImage, validateImageDimensions, extractVideoUrl } from './submission-input.js';
 
@@ -12,12 +12,60 @@ let previewUrl = null;
 let imageSequence = 0;
 let readingImage = false;
 let imageValidationError = '';
+let initialized = false;
+let chefMode = false;
+let addToShopping = null;
+let isInShopping = () => false;
+let menuLoaded = false;
+let menuLoadSequence = 0;
+const addingDishIds = new Set();
 const content = $('#menu-content');
 const dishDialog = $('#dish-dialog');
 const deleteDialog = $('#delete-dialog');
 const dishForm = $('#dish-form');
 const dishError = $('#dish-error');
-configureDialogs();
+
+export function initializeMenu(options) {
+  if (initialized) return Promise.resolve();
+  chefMode = Boolean(options.isChef);
+  addToShopping = options.addToShopping;
+  isInShopping = options.isInShopping || (() => false);
+  initialized = true;
+  return refreshMenu();
+}
+
+function updateShoppingButton(button) {
+  const id = Number(button.dataset.dishId);
+  const selected = isInShopping(id);
+  const busy = addingDishIds.has(id);
+  button.disabled = selected || busy;
+  button.classList.toggle('is-selected', selected);
+  button.setAttribute('aria-pressed', String(selected));
+  button.setAttribute('aria-busy', String(busy));
+  const label = `${selected ? '已加入待采购：' : '加入待采购：'}${button.dataset.dishName}`;
+  button.setAttribute('aria-label', label);
+  button.title = selected ? '已加入待采购' : '加入待采购';
+  button.replaceChildren(icon(selected ? 'check' : 'plus'));
+}
+
+function updateShoppingButtons() {
+  content.querySelectorAll('.shopping-add-button').forEach(updateShoppingButton);
+}
+
+async function addDishToShopping(dish) {
+  if (!chefMode || !addToShopping || addingDishIds.has(dish.id) || isInShopping(dish.id)) return;
+  addingDishIds.add(dish.id);
+  updateShoppingButtons();
+  try {
+    await addToShopping(dish);
+    toast('已加入待采购', dish.name, 3500);
+  } catch (error) {
+    if (!authExpired(error)) toast('添加失败', error.message);
+  } finally {
+    addingDishIds.delete(dish.id);
+    updateShoppingButtons();
+  }
+}
 
 function imageFallback(cover) {
   cover.replaceChildren(icon('bowl', 'bowl-icon'));
@@ -51,13 +99,23 @@ function makeCard(dish) {
   const actions = element('div', 'card-actions');
   const edit = element('button', 'icon-button');
   edit.type = 'button'; edit.append(icon('edit')); edit.title = '修改';
-  edit.setAttribute('aria-label', `申请修改${dish.name}`);
-  edit.addEventListener('click', () => openDish(dish));
+  edit.setAttribute('aria-label', `${chefMode ? '修改' : '申请修改'}${dish.name}`);
+  edit.addEventListener('click', () => openDishEditor(dish));
   const remove = element('button', 'icon-button danger-text');
   remove.type = 'button'; remove.append(icon('trash')); remove.title = '删除';
-  remove.setAttribute('aria-label', `申请删除${dish.name}`);
+  remove.setAttribute('aria-label', `${chefMode ? '删除' : '申请删除'}${dish.name}`);
   remove.addEventListener('click', () => openDelete(dish));
-  actions.append(edit, remove); card.append(cover, body, actions);
+  actions.append(edit, remove);
+  if (chefMode) {
+    const add = element('button', 'icon-button shopping-add-button');
+    add.type = 'button';
+    add.dataset.dishId = dish.id;
+    add.dataset.dishName = dish.name;
+    updateShoppingButton(add);
+    add.addEventListener('click', () => addDishToShopping(dish));
+    actions.append(add);
+  }
+  card.append(cover, body, actions);
   if (hasPreparation) {
     const preparation = element('details', 'dish-prep');
     const summary = element('summary');
@@ -86,15 +144,19 @@ function renderMenu() {
   content.replaceChildren(grid);
 }
 
-async function loadMenu() {
-  loading(content, '');
+export async function refreshMenu() {
+  const sequence = ++menuLoadSequence;
+  if (!menuLoaded) loading(content, '');
   try {
     const result = await api('/api/menu');
+    if (sequence !== menuLoadSequence) return;
     if (!Array.isArray(result)) throw new Error('菜单暂时无法读取，请重试。');
-    dishes = result; renderMenu();
+    dishes = result; menuLoaded = true; renderMenu();
   } catch (error) {
+    if (sequence !== menuLoadSequence) return;
     content.setAttribute('aria-busy', 'false');
-    content.replaceChildren(emptyState({ title: '加载失败', message: error.message, actionText: '重试', action: loadMenu, symbol: 'refresh' }));
+    if (menuLoaded) toast('刷新失败', error.message);
+    else content.replaceChildren(emptyState({ title: '加载失败', message: error.message, actionText: '重试', action: refreshMenu, symbol: 'refresh' }));
   }
 }
 
@@ -121,7 +183,8 @@ function setImagePreview(url, caption = '') {
   $('#image-caption').textContent = caption;
 }
 
-function openDish(dish = null) {
+export function openDishEditor(dish = null) {
+  if (!initialized || dishDialog.dataset.busy) return;
   editDish = dish;
   imageSequence += 1; readingImage = false; imageValidationError = '';
   dishForm.reset(); releasePreview(); selectedFile = null; imageAction = 'KEEP';
@@ -132,17 +195,22 @@ function openDish(dish = null) {
   $('#dish-video').value = dish?.videoUrl || '';
   $('#dish-notes').value = dish?.notes || '';
   $('#notes-count').textContent = `${$('#dish-notes').value.length} / 2000`;
-  $('#dish-submit').textContent = '提交审核';
+  $('#dish-submit').textContent = chefMode ? '保存' : '提交审核';
   setImagePreview(safeImageUrl(dish?.imageUrl), '当前图片');
   dishDialog.showModal();
   $('#dish-name').focus();
 }
 
 function openDelete(dish) {
+  if (!initialized || deleteDialog.dataset.busy) return;
   deleteDish = dish;
   setDialogBusy(deleteDialog, false);
-  $('#delete-dish-name').textContent = dish.name;
-  $('#delete-submit').textContent = '提交审核';
+  const name = $('#delete-dish-name');
+  name.textContent = dish.name;
+  $('#delete-title').textContent = chefMode ? '删除菜品？' : '申请删除？';
+  $('#delete-description').replaceChildren(document.createTextNode('「'), name,
+    document.createTextNode(chefMode ? '」将从菜单和待采购中移除。' : '」将在审核通过后删除。'));
+  $('#delete-submit').textContent = chefMode ? '删除' : '提交审核';
   showError($('#delete-error'), '');
   deleteDialog.showModal();
   $('[data-close="delete-dialog"]', $('#delete-form')).focus();
@@ -179,7 +247,8 @@ async function readImage(file) {
   }
 }
 
-$('#add-dish').addEventListener('click', () => openDish());
+$('#add-dish').addEventListener('click', () => openDishEditor());
+document.addEventListener('shopping:changed', updateShoppingButtons);
 document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => setFilter(button.dataset.filter)));
 $('#menu-search').addEventListener('input', renderMenu);
 $('#dish-notes').addEventListener('input', event => { $('#notes-count').textContent = `${event.target.value.length} / 2000`; });
@@ -205,7 +274,7 @@ dishDialog.addEventListener('close', () => { imageSequence += 1; readingImage = 
 
 dishForm.addEventListener('submit', async event => {
   event.preventDefault();
-  if (dishDialog.dataset.busy) return;
+  if (!initialized || dishDialog.dataset.busy) return;
   showError(dishError, '');
   if (readingImage) { showError(dishError, '正在读取图片，请稍等一下再提交。'); return; }
   const name = $('#dish-name').value.trim();
@@ -222,28 +291,36 @@ dishForm.addEventListener('submit', async event => {
   if (editDish) { form.set('dishId', editDish.id); form.set('expectedVersion', editDish.version); }
   form.set('name', name); form.set('videoUrl', videoUrl); form.set('notes', $('#dish-notes').value.trim()); form.set('imageAction', imageAction);
   if (selectedFile) form.set('image', selectedFile);
-  setDialogBusy(dishDialog, true); $('#dish-submit').textContent = '正在提交…';
+  setDialogBusy(dishDialog, true); $('#dish-submit').textContent = chefMode ? '保存中…' : '正在提交…';
   try {
-    const receipt = await writeApi('/api/submissions', { body: form });
+    const receipt = await writeApi(chefMode ? '/api/chef/dishes' : '/api/submissions', { body: form });
     dishDialog.close();
-    toast('已提交，待审核', `#${receipt.id}`, 5000);
-  } catch (error) { showError(dishError, error.message); }
-  finally { setDialogBusy(dishDialog, false); $('#dish-submit').textContent = '提交审核'; }
+    if (chefMode) {
+      toast('已保存', '', 3500);
+      await refreshMenu();
+      document.dispatchEvent(new CustomEvent('menu:changed'));
+    } else toast('已提交，待审核', `#${receipt.id}`, 5000);
+  } catch (error) {
+    if (!chefMode || !authExpired(error)) showError(dishError, error.message);
+  } finally { setDialogBusy(dishDialog, false); $('#dish-submit').textContent = chefMode ? '保存' : '提交审核'; }
 });
 
 $('#delete-form').addEventListener('submit', async event => {
   event.preventDefault();
-  if (deleteDialog.dataset.busy || !deleteDish) return;
+  if (!initialized || deleteDialog.dataset.busy || !deleteDish) return;
   showError($('#delete-error'), '');
   const form = new FormData();
   form.set('operation', 'DELETE'); form.set('dishId', deleteDish.id); form.set('expectedVersion', deleteDish.version); form.set('imageAction', 'KEEP');
-  setDialogBusy(deleteDialog, true); $('#delete-submit').textContent = '正在提交…';
+  setDialogBusy(deleteDialog, true); $('#delete-submit').textContent = chefMode ? '删除中…' : '正在提交…';
   try {
-    const receipt = await writeApi('/api/submissions', { body: form });
+    const receipt = await writeApi(chefMode ? '/api/chef/dishes' : '/api/submissions', { body: form });
     deleteDialog.close();
-    toast('删除申请已提交', `#${receipt.id} · 待审核`, 5000);
-  } catch (error) { showError($('#delete-error'), error.message); }
-  finally { setDialogBusy(deleteDialog, false); $('#delete-submit').textContent = '提交审核'; }
+    if (chefMode) {
+      toast('已删除', '', 3500);
+      await refreshMenu();
+      document.dispatchEvent(new CustomEvent('menu:changed'));
+    } else toast('删除申请已提交', `#${receipt.id} · 待审核`, 5000);
+  } catch (error) {
+    if (!chefMode || !authExpired(error)) showError($('#delete-error'), error.message);
+  } finally { setDialogBusy(deleteDialog, false); $('#delete-submit').textContent = chefMode ? '删除' : '提交审核'; }
 });
-
-loadMenu();

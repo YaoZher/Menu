@@ -43,8 +43,8 @@ public class SecurityConfig {
             @Value("${app.rate-limit.enabled:true}") boolean rateLimitEnabled) throws Exception {
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.POST, "/api/submissions", "/api/chef/login", "/api/chef/logout").permitAll()
-                .requestMatchers("/api/chef/**", "/chef", "/chef/", "/chef.html").hasRole("CHEF")
-                .requestMatchers(HttpMethod.GET, "/", "/index.html", "/chef/login", "/login.html", "/assets/**", "/favicon.ico", "/api/menu", "/api/csrf", "/media/**").permitAll()
+                .requestMatchers("/api/chef/**", "/chef", "/chef/", "/chef.html", "/shopping", "/shopping/").hasRole("CHEF")
+                .requestMatchers(HttpMethod.GET, "/", "/index.html", "/chef/login", "/login.html", "/assets/**", "/favicon.ico", "/api/menu", "/api/session", "/api/csrf", "/media/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().denyAll());
         http.requestCache(cache -> cache.requestCache(new NullRequestCache()));

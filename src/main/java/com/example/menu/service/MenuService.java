@@ -13,11 +13,13 @@ public class MenuService {
     private final DishRepository dishes;
     private final SubmissionRepository submissions;
     private final ImageService images;
+    private final ShoppingService shopping;
 
-    public MenuService(DishRepository dishes, SubmissionRepository submissions, ImageService images) {
+    public MenuService(DishRepository dishes, SubmissionRepository submissions, ImageService images, ShoppingService shopping) {
         this.dishes = dishes;
         this.submissions = submissions;
         this.images = images;
+        this.shopping = shopping;
     }
 
     @Transactional(readOnly = true)
@@ -64,6 +66,12 @@ public class MenuService {
         return SubmissionReceipt.from(submissions.save(submission));
     }
 
+    @Transactional
+    public SubmissionView saveAsChef(SubmissionCommand command, String chef) {
+        SubmissionReceipt receipt = submit(command);
+        return approve(receipt.id(), null, chef);
+    }
+
     @Transactional(readOnly = true)
     public List<SubmissionView> listSubmissions(String status) {
         if (status == null || status.isBlank()) status = "PENDING";
@@ -87,9 +95,11 @@ public class MenuService {
                 Dish dish = currentDish(submission);
                 dish.apply(submission.getAfterSnapshot(), now);
                 dishes.flush();
+                shopping.synchronizeDish(dish);
             }
             case DELETE -> {
                 Dish dish = currentDish(submission);
+                shopping.removeDish(dish);
                 dishes.delete(dish);
                 dishes.flush();
             }
