@@ -22,9 +22,12 @@ public class MenuService {
         this.shopping = shopping;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true) // 只读事务
     public List<DishView> listMenu() {
-        return dishes.findAllByOrderByUpdatedAtDescIdDesc().stream().map(DishView::from).toList();
+        return dishes.findAllByOrderByUpdatedAtDescIdDesc()
+        .stream()
+        .map(DishView::from)
+        .toList();
     }
 
     @Transactional
