@@ -23,6 +23,10 @@ public class MenuService {
     }
 
     @Transactional(readOnly = true) // 只读事务：这个事务预期只读取数据。
+    /*
+    在 Spring Data JPA + Hibernate 环境下，这可能带来以下优化：
+    
+    */
     public List<DishView> listMenu() {
         return dishes.findAllByOrderByUpdatedAtDescIdDesc() // 从数据库查询所有菜品，按更新时间和 ID 倒序排列。
         .stream()
