@@ -22,11 +22,11 @@ public class MenuService {
         this.shopping = shopping;
     }
 
-    @Transactional(readOnly = true) // 只读事务
+    @Transactional(readOnly = true) // 只读事务：这个事务预期只读取数据。
     public List<DishView> listMenu() {
-        return dishes.findAllByOrderByUpdatedAtDescIdDesc()
+        return dishes.findAllByOrderByUpdatedAtDescIdDesc() // 从数据库查询所有菜品，按更新时间和 ID 倒序排列。
         .stream()
-        .map(DishView::from)
+        .map(DishView::from) // 将 Dish 实体转换为 DishView 响应对象。
         .toList();
     }
 
