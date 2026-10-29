@@ -5,10 +5,25 @@ export function element(tag, className, text) {
   if (text !== undefined && text !== null) node.textContent = String(text);
   return node;
 }
+const actionPaths = {
+  plus: 'M12 5v14M5 12h14',
+  edit: 'm14 5 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14ZM4 20h16',
+  trash: 'M3 6h18M9 6V3h6v3M5 6l1 14h12l1-14M10 10v6M14 10v6',
+  check: 'm5 12 4 4L19 6',
+  close: 'm6 6 12 12M18 6 6 18',
+  refresh: 'M20 7v5h-5M4 17v-5h5M5 8a8 8 0 0 1 14-2l1 6M4 12l1 6a8 8 0 0 0 14-2'
+};
 export function icon(name, className = 'icon') {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', className);
   svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('viewBox', name === 'bowl' ? '0 0 80 80' : '0 0 24 24');
+  if (actionPaths[name]) {
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', actionPaths[name]);
+    svg.append(path);
+    return svg;
+  }
   const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
   use.setAttribute('href', `/assets/icons.svg#${name}`);
   svg.append(use);
@@ -107,7 +122,7 @@ export function configureDialogs() {
 }
 export function setDialogBusy(dialog, busy) {
   if (busy) dialog.dataset.busy = 'true'; else delete dialog.dataset.busy;
-  dialog.querySelectorAll('button, input, textarea').forEach(control => { control.disabled = busy; });
+  dialog.querySelectorAll('button, input, textarea, select').forEach(control => { control.disabled = busy; });
 }
 export function authExpired(error) {
   if (error.status === 401 || error.status === 403) { location.assign('/chef/login?expired=1'); return true; }

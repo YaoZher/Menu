@@ -1,5 +1,6 @@
 import { $, element, icon, api, writeApi, safeVideoUrl, safeImageUrl, dateText, toast, showError, loading, emptyState, setDialogBusy, authExpired } from './common.js';
 import { renderNoteContent } from './notes.js';
+import { renderTagChips } from './tags.js';
 
 let submissions = [];
 let activeStatus = 'PENDING';
@@ -25,6 +26,7 @@ function snapshot(data, side, operation) {
     return panel;
   }
   panel.append(element('h4', '', data.name));
+  panel.append(renderTagChips(data.tags));
   const imageUrl = safeImageUrl(data.imageUrl);
   if (imageUrl) {
     const image = element('img', 'snapshot-image');

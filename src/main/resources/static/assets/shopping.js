@@ -1,17 +1,20 @@
 import { $, element, icon, api, writeApi, safeVideoUrl, toast, loading, emptyState, authExpired } from './common.js';
 import { getNoteLines, renderNoteContent } from './notes.js';
+import { OptimisticCheckQueue } from './optimistic-checks.js';
 
 let entries = [];
 let initialized = false;
 let ready = false;
 let loadingPromise = null;
+let refreshRequested = false;
 let revision = 0;
 let sessionEpoch = 0;
 let onEditDish = () => {};
 let onChanged = () => {};
 const busy = new Set();
 const adding = new Map();
-const optimisticChecks = new Map();
+const checkQueues = new Map();
+const checkDrains = new Map();
 const expanded = new Set();
 
 function changed() {
@@ -36,7 +39,9 @@ export function clearShoppingState() {
   sessionEpoch += 1;
   revision += 1;
   entries = []; ready = false;
-  busy.clear(); adding.clear(); optimisticChecks.clear(); expanded.clear();
+  busy.clear(); adding.clear(); checkQueues.clear(); checkDrains.clear(); expanded.clear();
+  loadingPromise = null;
+  refreshRequested = false;
   $('#shopping-content').replaceChildren();
   changed();
 }
@@ -47,31 +52,52 @@ function updateEntry(updated) {
 }
 
 export async function loadShopping() {
-  if (loadingPromise) return loadingPromise;
-  if (busy.size || adding.size) return entries;
+  if (busy.size || adding.size || checkQueues.size) {
+    refreshRequested = true;
+    return entries;
+  }
+  if (loadingPromise) {
+    refreshRequested = true;
+    return loadingPromise;
+  }
+  refreshRequested = false;
   const version = revision;
+  const epoch = sessionEpoch;
   const content = $('#shopping-content');
   if (!ready) loading(content, '');
   $('#refresh-shopping').disabled = true;
-  loadingPromise = (async () => {
+  const request = (async () => {
     try {
       const data = await api('/api/chef/shopping');
       if (!Array.isArray(data)) throw new Error('清单读取失败，请重试。');
-      if (version !== revision) return entries;
+      if (epoch !== sessionEpoch) return entries;
+      if (version !== revision) { refreshRequested = true; return entries; }
       entries = data; ready = true;
       renderShopping(); changed();
     } catch (error) {
-      if (version !== revision || authExpired(error)) return entries;
+      if (epoch !== sessionEpoch) return entries;
+      if (version !== revision) { refreshRequested = true; return entries; }
+      if (authExpired(error)) { refreshRequested = false; return entries; }
       content.setAttribute('aria-busy', 'false');
       if (ready) toast('刷新失败', error.message);
       else content.replaceChildren(emptyState({ title: '加载失败', message: error.message, actionText: '重试', action: loadShopping, symbol: 'refresh' }));
     } finally {
-      loadingPromise = null;
-      $('#refresh-shopping').disabled = false;
+      if (loadingPromise === request) {
+        loadingPromise = null;
+        $('#refresh-shopping').disabled = false;
+        flushShoppingRefresh(epoch);
+      }
     }
     return entries;
   })();
-  return loadingPromise;
+  loadingPromise = request;
+  return request;
+}
+
+function flushShoppingRefresh(epoch) {
+  // An edit or navigation during a write still needs a fresh recipe once all writes settle.
+  if (epoch === sessionEpoch && refreshRequested && !loadingPromise
+      && !busy.size && !adding.size && !checkQueues.size) void loadShopping();
 }
 
 export async function addToShopping(dish) {
@@ -95,7 +121,10 @@ export async function addToShopping(dish) {
   })();
   adding.set(dish.id, request);
   try { return await request; }
-  finally { adding.delete(dish.id); }
+  finally {
+    if (adding.get(dish.id) === request) adding.delete(dish.id);
+    flushShoppingRefresh(epoch);
+  }
 }
 
 function iconButton(symbol, label, action) {
@@ -119,7 +148,7 @@ function shoppingCard(entry) {
     iconButton('close', `将${entry.dish.name}移出待采购`, () => removeEntry(entry))
   );
   heading.append(title, actions); card.append(heading);
-  const checked = item => optimisticChecks.has(item.id) ? optimisticChecks.get(item.id) : item.checked;
+  const checked = item => checkQueues.get(entry.id)?.value(item.id) ?? item.checked;
   if (entry.ingredients.length) {
     const count = entry.ingredients.filter(checked).length;
     const progress = element('span', 'shopping-progress', `${count} / ${entry.ingredients.length}`);
@@ -136,7 +165,7 @@ function shoppingCard(entry) {
       checkbox.addEventListener('change', () => {
         const current = entries.find(item => item.id === entry.id);
         const currentIngredient = current?.ingredients.find(item => item.id === ingredient.id);
-        if (currentIngredient) setChecked(current, currentIngredient, checkbox.checked, checkbox.id);
+        if (currentIngredient) setChecked(current, currentIngredient, checkbox.checked);
       });
       label.append(checkbox, element('span', '', ingredient.text));
       row.append(label); list.append(row);
@@ -183,7 +212,7 @@ function refreshCard(entry, focusId) {
     let checkedCount = 0;
     checkboxes.forEach((input, index) => {
       const ingredient = entry.ingredients[index];
-      input.checked = optimisticChecks.has(ingredient.id) ? optimisticChecks.get(ingredient.id) : ingredient.checked;
+      input.checked = checkQueues.get(entry.id)?.value(ingredient.id) ?? ingredient.checked;
       input.disabled = disabled;
       if (input.checked) checkedCount += 1;
     });
@@ -221,27 +250,95 @@ function renderShopping(focusId) {
   if (restoreId && !$('#shopping-view').hidden) document.getElementById(restoreId)?.focus({ preventScroll: true });
 }
 
-async function setChecked(entry, ingredient, checked, focusId) {
+function setChecked(entry, ingredient, checked) {
   if (busy.has(entry.id)) return;
-  const epoch = sessionEpoch;
-  revision += 1; busy.add(entry.id); optimisticChecks.set(ingredient.id, checked);
-  refreshCard(entry);
-  try {
-    const updated = await writeApi(`/api/chef/shopping/${encodeURIComponent(entry.id)}/ingredients/${encodeURIComponent(ingredient.id)}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ checked })
-    });
-    if (epoch !== sessionEpoch) return;
-    revision += 1; updateEntry(updated); changed();
-  } catch (error) {
-    if (epoch === sessionEpoch && !authExpired(error)) toast('未能保存', error.message);
-  } finally {
-    if (epoch === sessionEpoch) {
-      optimisticChecks.delete(ingredient.id); busy.delete(entry.id);
-      const restoreFocus = document.activeElement === document.body || document.activeElement?.id === focusId;
-      const current = entries.find(item => item.id === entry.id);
-      if (current) refreshCard(current, restoreFocus ? focusId : null);
-    }
+  let queue = checkQueues.get(entry.id);
+  if (!queue) {
+    queue = new OptimisticCheckQueue(entry.ingredients);
+    checkQueues.set(entry.id, queue);
   }
+  if (!queue.set(ingredient.id, checked)) {
+    if (!queue.pending) checkQueues.delete(entry.id);
+    return;
+  }
+  revision += 1;
+  refreshCard(entry);
+  void drainChecks(entry.id, queue);
+}
+
+function rollbackChecksBeforeLogin(error) {
+  sessionEpoch += 1; revision += 1;
+  refreshRequested = false;
+  checkQueues.clear(); checkDrains.clear();
+  entries.forEach(entry => refreshCard(entry));
+  authExpired(error);
+}
+
+async function reconcileEntry(entryId, queue, epoch) {
+  const data = await api('/api/chef/shopping');
+  if (epoch !== sessionEpoch || checkQueues.get(entryId) !== queue) return;
+  if (!Array.isArray(data)) throw new Error('清单读取失败，请重试。');
+  const entry = data.find(item => item.id === entryId);
+  if (!entry) {
+    queue.cancel();
+    entries = entries.filter(item => item.id !== entryId);
+    expanded.delete(entryId);
+    renderShopping(); changed();
+    return;
+  }
+  queue.reconcile(entry.ingredients);
+  updateEntry(entry);
+  refreshCard(entry);
+}
+
+function drainChecks(entryId, queue) {
+  if (checkDrains.has(entryId)) return checkDrains.get(entryId);
+  const epoch = sessionEpoch;
+  const request = Promise.resolve().then(async () => {
+    try {
+      while (epoch === sessionEpoch && checkQueues.get(entryId) === queue) {
+        const operation = queue.next();
+        if (!operation) break;
+        try {
+          const updated = await writeApi(`/api/chef/shopping/${encodeURIComponent(entryId)}/ingredients/${encodeURIComponent(operation.id)}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ checked: operation.checked })
+          });
+          if (epoch !== sessionEpoch || checkQueues.get(entryId) !== queue) return;
+          if (updated?.id !== entryId || !Array.isArray(updated.ingredients)) throw new Error('保存结果读取失败，请重试。');
+          const result = queue.resolve(operation, updated.ingredients);
+          revision += 1; updateEntry(updated); refreshCard(updated);
+          if (result.removed) toast('原料已更新', '请核对待采购清单。');
+        } catch (error) {
+          if (epoch !== sessionEpoch || checkQueues.get(entryId) !== queue) return;
+          queue.reject(operation);
+          revision += 1;
+          const current = entries.find(item => item.id === entryId);
+          if (current) refreshCard(current);
+          if (error.status === 401 || error.status === 403) { rollbackChecksBeforeLogin(error); return; }
+          toast('勾选未能保存', error.message);
+          if (error.status === 404 || error.status === 409) {
+            try {
+              await reconcileEntry(entryId, queue, epoch);
+              if (epoch !== sessionEpoch || checkQueues.get(entryId) !== queue) return;
+            } catch (refreshError) {
+              if (epoch !== sessionEpoch) return;
+              queue.cancel();
+              if (refreshError.status === 401 || refreshError.status === 403) { rollbackChecksBeforeLogin(refreshError); return; }
+              const retained = entries.find(item => item.id === entryId);
+              if (retained) refreshCard(retained);
+              return;
+            }
+          }
+        }
+      }
+    } finally {
+      if (checkDrains.get(entryId) === request) checkDrains.delete(entryId);
+      if (checkQueues.get(entryId) === queue && !queue.pending) checkQueues.delete(entryId);
+      flushShoppingRefresh(epoch);
+    }
+  });
+  checkDrains.set(entryId, request);
+  return request;
 }
 
 async function removeEntry(entry) {
@@ -249,6 +346,9 @@ async function removeEntry(entry) {
   const epoch = sessionEpoch;
   revision += 1; busy.add(entry.id); renderShopping();
   try {
+    // Keep an older PATCH response from recreating an item after its DELETE completes.
+    await checkDrains.get(entry.id);
+    if (epoch !== sessionEpoch) return;
     await writeApi(`/api/chef/shopping/${encodeURIComponent(entry.id)}`, { method: 'DELETE' });
     if (epoch !== sessionEpoch) return;
     revision += 1;
@@ -256,5 +356,10 @@ async function removeEntry(entry) {
     changed(); toast('已移出待采购', entry.dish.name, 2500);
   } catch (error) {
     if (epoch === sessionEpoch && !authExpired(error)) toast('移除失败', error.message);
-  } finally { if (epoch === sessionEpoch) { busy.delete(entry.id); renderShopping(); } }
+  } finally {
+    if (epoch === sessionEpoch) {
+      busy.delete(entry.id); renderShopping();
+      flushShoppingRefresh(epoch);
+    }
+  }
 }

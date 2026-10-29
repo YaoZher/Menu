@@ -1,6 +1,7 @@
 import { $, element, icon, api, writeApi, safeVideoUrl, safeImageUrl, toast, showError, loading, emptyState, setDialogBusy, authExpired } from './common.js';
 import { getNoteLines, renderNoteContent, insertNoteMarker } from './notes.js';
 import { ImageValidationError, prepareUploadImage, validateImageDimensions, extractVideoUrl } from './submission-input.js';
+import { createTagPicker, loadTagCatalog, matchesTagFilters, renderTagChips } from './tags.js';
 
 let dishes = [];
 let activeFilter = 'all';
@@ -18,6 +19,9 @@ let addToShopping = null;
 let isInShopping = () => false;
 let menuLoaded = false;
 let menuLoadSequence = 0;
+let tagEditor = null;
+let tagFilter = null;
+let activeTagFilters = [];
 const addingDishIds = new Set();
 const content = $('#menu-content');
 const dishDialog = $('#dish-dialog');
@@ -30,8 +34,16 @@ export function initializeMenu(options) {
   chefMode = Boolean(options.isChef);
   addToShopping = options.addToShopping;
   isInShopping = options.isInShopping || (() => false);
+  tagEditor = createTagPicker($('#dish-tag-picker'), { isChef: chefMode });
+  tagFilter = createTagPicker($('#menu-tag-picker'), { mode: 'filter', onChange: selected => {
+    activeTagFilters = selected;
+    $('#tag-filter-count').textContent = selected.length ? `${selected.length} 项` : '全部';
+    $('#menu-tag-filter-summary').title = selected.map(tag => tag.name).join('、');
+    $('#clear-tag-filter').disabled = selected.length === 0;
+    renderMenu();
+  } });
   initialized = true;
-  return refreshMenu();
+  return Promise.all([refreshMenu(), loadTagCatalog()]);
 }
 
 function updateShoppingButton(button) {
@@ -83,6 +95,10 @@ function makeCard(dish) {
   } else imageFallback(cover);
   const body = element('div', 'dish-body');
   body.append(element('h3', '', dish.name));
+  body.append(renderTagChips(dish.tags, tag => {
+    tagFilter.setSelection([tag], true);
+    $('#menu-tag-filter').open = true;
+  }));
   const noteLines = getNoteLines(dish);
   const hasPreparation = noteLines.some(line => line.type !== 'NOTE');
   if (!hasPreparation && dish.notes) body.append(element('p', 'dish-notes', dish.notes));
@@ -127,16 +143,21 @@ function makeCard(dish) {
 }
 
 function renderMenu() {
+  if (!menuLoaded) return;
   content.setAttribute('aria-busy', 'false');
   $('#menu-count').textContent = String(dishes.length);
   const query = $('#menu-search').value.trim().toLocaleLowerCase('zh-CN');
-  const visible = dishes.filter(dish => (!query || `${dish.name} ${dish.notes || ''}`.toLocaleLowerCase('zh-CN').includes(query)) && (activeFilter === 'all' || activeFilter === 'image' && dish.imageUrl || activeFilter === 'video' && dish.videoUrl));
+  const visible = dishes.filter(dish => (!query || `${dish.name} ${dish.notes || ''}`.toLocaleLowerCase('zh-CN').includes(query))
+    && (activeFilter === 'all' || activeFilter === 'image' && dish.imageUrl || activeFilter === 'video' && dish.videoUrl)
+    && matchesTagFilters(dish.tags, activeTagFilters));
   if (!dishes.length) {
     content.replaceChildren(emptyState({ title: '暂无菜品' }));
     return;
   }
   if (!visible.length) {
-    content.replaceChildren(emptyState({ title: '未找到菜品', symbol: 'search', actionText: '重置', action: () => { $('#menu-search').value = ''; setFilter('all'); } }));
+    content.replaceChildren(emptyState({ title: '未找到菜品', symbol: 'search', actionText: '重置', action: () => {
+      $('#menu-search').value = ''; activeFilter = 'all'; tagFilter.setSelection([], true); setFilter('all');
+    } }));
     return;
   }
   const grid = element('div', 'menu-grid');
@@ -146,7 +167,8 @@ function renderMenu() {
 
 export async function refreshMenu() {
   const sequence = ++menuLoadSequence;
-  if (!menuLoaded) loading(content, '');
+  // Restore the public menu from its own cache when returning from shopping; keep it visible while refreshing.
+  if (menuLoaded) renderMenu(); else loading(content, '');
   try {
     const result = await api('/api/menu');
     if (sequence !== menuLoadSequence) return;
@@ -194,6 +216,7 @@ export function openDishEditor(dish = null) {
   $('#dish-name').value = dish?.name || '';
   $('#dish-video').value = dish?.videoUrl || '';
   $('#dish-notes').value = dish?.notes || '';
+  tagEditor.setSelection(dish?.tags || []);
   $('#notes-count').textContent = `${$('#dish-notes').value.length} / 2000`;
   $('#dish-submit').textContent = chefMode ? '保存' : '提交审核';
   setImagePreview(safeImageUrl(dish?.imageUrl), '当前图片');
@@ -249,6 +272,7 @@ async function readImage(file) {
 
 $('#add-dish').addEventListener('click', () => openDishEditor());
 document.addEventListener('shopping:changed', updateShoppingButtons);
+$('#clear-tag-filter').addEventListener('click', () => tagFilter?.setSelection([], true));
 document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => setFilter(button.dataset.filter)));
 $('#menu-search').addEventListener('input', renderMenu);
 $('#dish-notes').addEventListener('input', event => { $('#notes-count').textContent = `${event.target.value.length} / 2000`; });
@@ -277,6 +301,8 @@ dishForm.addEventListener('submit', async event => {
   if (!initialized || dishDialog.dataset.busy) return;
   showError(dishError, '');
   if (readingImage) { showError(dishError, '正在读取图片，请稍等一下再提交。'); return; }
+  if (tagEditor?.isBusy()) { showError(dishError, '正在添加标签，请稍后保存。'); return; }
+  if (!tagEditor?.isReady()) { showError(dishError, '请等待标签加载完成，或重试后保存。'); return; }
   const name = $('#dish-name').value.trim();
   const rawVideo = $('#dish-video').value;
   if (!name) { showError(dishError, '请填写菜名'); $('#dish-name').focus(); return; }
@@ -290,6 +316,7 @@ dishForm.addEventListener('submit', async event => {
   form.set('operation', editDish ? 'UPDATE' : 'CREATE');
   if (editDish) { form.set('dishId', editDish.id); form.set('expectedVersion', editDish.version); }
   form.set('name', name); form.set('videoUrl', videoUrl); form.set('notes', $('#dish-notes').value.trim()); form.set('imageAction', imageAction);
+  form.set('tagIds', JSON.stringify(tagEditor.getSelection().map(tag => tag.id)));
   if (selectedFile) form.set('image', selectedFile);
   setDialogBusy(dishDialog, true); $('#dish-submit').textContent = chefMode ? '保存中…' : '正在提交…';
   try {

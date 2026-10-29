@@ -9,17 +9,17 @@ public final class MenuViews {
     private MenuViews() { }
 
     public record DishView(Long id, String name, String imageUrl, String videoUrl, String notes, List<NoteLine> noteLines,
-                           long version, Instant updatedAt) {
+                           List<TagRef> tags, long version, Instant updatedAt) {
         public static DishView from(Dish dish) {
             return new DishView(dish.getId(), dish.getName(), MenuViews.imageUrl(dish.getImageId()),
-                    dish.getVideoUrl(), dish.getNotes(), dish.getNoteLines(), dish.getVersion(), dish.getUpdatedAt());
+                    dish.getVideoUrl(), dish.getNotes(), dish.getNoteLines(), dish.getTags(), dish.getVersion(), dish.getUpdatedAt());
         }
     }
 
-    public record SnapshotView(String name, String imageUrl, String videoUrl, String notes, List<NoteLine> noteLines) {
+    public record SnapshotView(String name, String imageUrl, String videoUrl, String notes, List<NoteLine> noteLines, List<TagRef> tags) {
         public static SnapshotView from(DishSnapshot snapshot) {
             return snapshot == null ? null : new SnapshotView(snapshot.getName(), MenuViews.imageUrl(snapshot.getImageId()),
-                    snapshot.getVideoUrl(), snapshot.getNotes(), snapshot.getNoteLines());
+                    snapshot.getVideoUrl(), snapshot.getNotes(), snapshot.getNoteLines(), snapshot.getTags());
         }
     }
 

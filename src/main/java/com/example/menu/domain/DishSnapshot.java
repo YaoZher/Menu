@@ -15,6 +15,9 @@ public class DishSnapshot {
     @Lob
     @Convert(converter = NoteLinesConverter.class)
     private List<NoteLine> noteLines;
+    @Lob
+    @Convert(converter = TagRefsConverter.class)
+    private List<TagRef> tags;
 
     protected DishSnapshot() { }
 
@@ -23,11 +26,16 @@ public class DishSnapshot {
     }
 
     DishSnapshot(String name, UUID imageId, String videoUrl, String notes, List<NoteLine> noteLines) {
+        this(name, imageId, videoUrl, notes, noteLines, List.of());
+    }
+
+    DishSnapshot(String name, UUID imageId, String videoUrl, String notes, List<NoteLine> noteLines, List<TagRef> tags) {
         this.name = name;
         this.imageId = imageId;
         this.videoUrl = videoUrl;
         this.notes = notes;
         this.noteLines = List.copyOf(noteLines);
+        this.tags = List.copyOf(tags);
     }
 
     public String getName() { return name; }
@@ -35,4 +43,6 @@ public class DishSnapshot {
     public String getVideoUrl() { return videoUrl; }
     public String getNotes() { return notes; }
     public List<NoteLine> getNoteLines() { return noteLines == null ? NoteLines.parse(notes) : noteLines; }
+    public List<TagRef> getTags() { return tags == null ? List.of() : tags; }
+    public void setTags(List<TagRef> tags) { this.tags = List.copyOf(tags); }
 }

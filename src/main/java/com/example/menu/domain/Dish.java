@@ -21,6 +21,9 @@ public class Dish {
     @Convert(converter = NoteLinesConverter.class)
     @Column(name = "note_lines")
     private List<NoteLine> noteLines;
+    @Lob
+    @Convert(converter = TagRefsConverter.class)
+    private List<TagRef> tags;
     @Version
     private long version;
     @Column(nullable = false)
@@ -36,16 +39,18 @@ public class Dish {
         videoUrl = snapshot.getVideoUrl();
         notes = snapshot.getNotes();
         noteLines = List.copyOf(snapshot.getNoteLines());
+        tags = List.copyOf(snapshot.getTags());
         updatedAt = now;
     }
 
-    public DishSnapshot snapshot() { return new DishSnapshot(name, imageId, videoUrl, notes, getNoteLines()); }
+    public DishSnapshot snapshot() { return new DishSnapshot(name, imageId, videoUrl, notes, getNoteLines(), getTags()); }
     public Long getId() { return id; }
     public String getName() { return name; }
     public UUID getImageId() { return imageId; }
     public String getVideoUrl() { return videoUrl; }
     public String getNotes() { return notes; }
     public List<NoteLine> getNoteLines() { return noteLines == null ? NoteLines.parse(notes) : noteLines; }
+    public List<TagRef> getTags() { return tags == null ? List.of() : tags; }
     public long getVersion() { return version; }
     public Instant getUpdatedAt() { return updatedAt; }
 }

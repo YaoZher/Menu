@@ -1,0 +1,43 @@
+.dish-tags, .selected-tags { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.dish-tags { margin-top: 8px; }
+.tag-chip { display: inline-flex; align-items: center; max-width: 100%; padding: 3px 9px; border: 1px solid #dbe2d4; border-radius: 999px; background: var(--green-light); color: var(--green); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+button.tag-chip { min-height: 30px; font: inherit; font-size: 12px; }
+button.tag-chip:hover { background: #dce5d5; }
+.menu-tag-filter { margin: -8px 0 24px; padding: 0 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); }
+.menu-tag-filter > summary { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; list-style: none; font-size: 13px; }
+.menu-tag-filter > summary::-webkit-details-marker { display: none; }
+.menu-tag-filter > summary .icon { width: 14px; height: 14px; margin-left: auto; }
+.menu-tag-filter[open] > summary .icon { transform: rotate(90deg); }
+.menu-tag-filter[open] { padding-bottom: 14px; }
+.tag-filter-count { font-size: 12px; color: var(--muted); }
+.tag-filter-heading { display: flex; justify-content: flex-end; }
+.tag-filter-clear { min-height: 36px; font-size: 12px; }
+.tag-picker { min-width: 0; }
+.tag-field-label { display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; }
+.selected-tags:empty { display: none; }
+.selected-tags { margin-bottom: 10px; }
+.selected-tag { min-height: 34px; }
+.tag-category-tabs { display: flex; gap: 5px; flex-wrap: wrap; margin: 0 0 10px; }
+.tag-category { min-height: 36px; padding: 6px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font: inherit; font-size: 12px; }
+.tag-category[aria-pressed="true"] { background: var(--green); color: white; }
+.tag-picker .tag-search, .field .tag-picker .tag-search { width: 100%; height: 38px; min-height: 38px; margin-bottom: 10px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--white); font-size: 14px; }
+.tag-options { display: flex; flex-wrap: wrap; gap: 7px; max-height: 180px; overflow-y: auto; padding: 2px; }
+.tag-option { min-height: 36px; padding: 6px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--white); color: var(--ink); font: inherit; font-size: 13px; overflow-wrap: anywhere; max-width: 100%; }
+.tag-option.active { border-color: var(--green); background: var(--green-light); color: var(--green); }
+.tag-empty { font-size: 12px; color: var(--muted); padding: 7px 0; }
+.tag-manager { margin-top: 10px; }
+.tag-manager > summary { display: inline-flex; align-items: center; min-height: 36px; cursor: pointer; list-style: none; color: var(--green); font-size: 13px; }
+.tag-manager > summary::-webkit-details-marker { display: none; }
+.tag-manager-fields { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; gap: 8px; margin-top: 6px; }
+.tag-manager-fields select, .field .tag-manager-fields input { min-width: 0; width: 100%; min-height: 40px; margin: 0; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; background: var(--white); color: var(--ink); font: inherit; font-size: 13px; }
+.tag-manager-fields input[aria-label="新分类名称"] { grid-column: 1 / -1; }
+.tag-manager-fields .button { min-height: 40px; padding: 7px 12px; font-size: 13px; }
+.snapshot > .dish-tags { margin-bottom: 12px; }
+@media(max-width: 600px) {
+  .menu-tag-filter { margin-bottom: 18px; padding-inline: 10px; }
+  .tag-category { padding-inline: 8px; }
+  .tag-options { max-height: 160px; }
+  .tag-picker .tag-search, .field .tag-picker .tag-search, .tag-manager-fields select, .field .tag-manager-fields input { font-size: 16px; }
+  .tag-manager-fields { grid-template-columns: minmax(0, 1fr) auto; }
+  .tag-manager-fields select { grid-column: 1 / -1; }
+}

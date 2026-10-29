@@ -24,9 +24,10 @@ public class ChefMenuController {
             @RequestParam(required = false) String videoUrl,
             @RequestParam(required = false) String notes,
             @RequestParam(required = false) String imageAction,
+            @RequestParam(required = false) String tagIds,
             @RequestPart(required = false) MultipartFile image,
             Principal principal) {
         return menu.saveAsChef(new SubmissionCommand(operation, dishId, expectedVersion, name,
-                videoUrl, notes, imageAction, image), principal.getName());
+                videoUrl, notes, imageAction, image, tagIds), principal.getName());
     }
 }

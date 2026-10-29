@@ -14,12 +14,14 @@ public class MenuService {
     private final SubmissionRepository submissions;
     private final ImageService images;
     private final ShoppingService shopping;
+    private final TagService tags;
 
-    public MenuService(DishRepository dishes, SubmissionRepository submissions, ImageService images, ShoppingService shopping) {
+    public MenuService(DishRepository dishes, SubmissionRepository submissions, ImageService images, ShoppingService shopping, TagService tags) {
         this.dishes = dishes;
         this.submissions = submissions;
         this.images = images;
         this.shopping = shopping;
+        this.tags = tags;
     }
 
     @Transactional(readOnly = true) // 只读事务：这个事务预期只读取数据。
@@ -74,6 +76,7 @@ public class MenuService {
                 case REPLACE -> images.save(command.image());
             };
             after = new DishSnapshot(name, imageId, videoUrl, notes);
+            after.setTags(tags.resolve(command.tagIds(), before == null ? null : before.getTags()));
         } else if (command.image() != null && !command.image().isEmpty()) {
             throw ApiException.badRequest("删除申请无需上传图片");
         }
@@ -100,6 +103,9 @@ public class MenuService {
     public SubmissionView approve(Long id, String note, String reviewer) {
         String cleanNote = clean(note, 1000, "审核备注");
         Submission submission = pendingSubmission(id);
+        if (submission.getAfterSnapshot() != null && submission.getAfterSnapshot().getTags().isEmpty()) {
+            submission.getAfterSnapshot().setTags(tags.defaultTags());
+        }
         Instant now = Instant.now();
         switch (submission.getOperation()) {
             case CREATE -> {

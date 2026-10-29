@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/assets/simple.css">
   <link rel="stylesheet" href="/assets/phase2.css">
   <link rel="stylesheet" href="/assets/shopping.css">
+  <link rel="stylesheet" href="/assets/tags.css">
   <script type="module" src="/assets/app.js"></script>
 </head>
 <body class="menu-page">
@@ -24,7 +25,7 @@
     <div class="header-actions">
       <a class="icon-button chef-link" id="chef-login" href="/chef/login" aria-label="厨师登录" title="厨师登录" hidden><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#chef"/></svg></a>
       <button type="button" class="text-button" id="logout" hidden>退出</button>
-      <button type="button" class="add-button" id="add-dish" aria-label="添加菜品" title="添加菜品" disabled><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#plus"/></svg></button>
+      <button type="button" class="add-button" id="add-dish" aria-label="添加菜品" title="添加菜品" disabled><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
     </div>
   </header>
   <div class="session-status wrap" id="session-status" role="alert" hidden><p id="session-error"></p><button class="button secondary" type="button" id="retry-session">重试</button></div>
@@ -37,6 +38,11 @@
         <button class="filter-button" data-filter="video" aria-pressed="false">视频</button>
       </div>
     </div>
+    <details class="menu-tag-filter" id="menu-tag-filter">
+      <summary id="menu-tag-filter-summary"><span>标签</span><span id="tag-filter-count" class="tag-filter-count">全部</span><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 7 7-7 7"/></svg></summary>
+      <div class="tag-filter-heading"><button type="button" class="text-button tag-filter-clear" id="clear-tag-filter" disabled>清除</button></div>
+      <div class="tag-picker" id="menu-tag-picker"></div>
+    </details>
     <div id="menu-content" aria-live="polite" aria-busy="true"><div class="loading-state"><span class="spinner"></span><span class="visually-hidden">加载中</span></div></div>
   </main>
   <main class="shopping-main wrap app-view" id="shopping-view" aria-labelledby="shopping-heading" tabindex="-1" hidden>
@@ -64,6 +70,7 @@
       <div class="dialog-header"><h2 id="dish-dialog-title">添加菜品</h2><button type="button" class="icon-button" data-close="dish-dialog" aria-label="关闭"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#close"/></svg></button></div>
       <div class="form-stack">
         <div class="field"><label for="dish-name">菜名 <span class="required" aria-hidden="true">*</span></label><input id="dish-name" name="name" maxlength="80" placeholder="菜名" required autocomplete="off"></div>
+        <div class="field"><span class="tag-field-label" id="dish-tags-label">标签</span><div class="tag-picker" id="dish-tag-picker" role="group" aria-labelledby="dish-tags-label"></div></div>
         <div class="field">
           <label for="dish-image">图片</label>
           <label class="upload-zone" id="upload-zone" for="dish-image"><span id="upload-prompt"><svg class="upload-icon" aria-hidden="true"><use href="/assets/icons.svg#image"/></svg><span>JPG / PNG · ≤ 5 MB</span></span><img id="image-preview" alt="菜品图片预览" hidden><input type="file" id="dish-image" name="image" accept=".png,.jpg,.jpeg,image/png,image/jpeg,image/x-png" class="file-input"></label>
