@@ -25,6 +25,7 @@ public class MenuService {
     @Transactional(readOnly = true) // 只读事务：这个事务预期只读取数据。
     /*
     在 Spring Data JPA + Hibernate 环境下，这可能带来以下优化：
+    1.Hibernate 可以采用更适合只读操作的刷新和脏检查策略。
     
     */
     public List<DishView> listMenu() {
