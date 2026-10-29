@@ -32,7 +32,9 @@ public class MenuService {
     // readOnly = true 不等于禁止执行 INSERT、UPDATE、DELETE。
     // 它主要是一个只读提示和优化配置，并非绝对的写入权限控制。
     // 某些数据库或驱动会执行限制，但不能依靠这个注解保证数据库无法被修改。
+
     public List<DishView> listMenu() {
+        // 查询菜单
         return dishes.findAllByOrderByUpdatedAtDescIdDesc() // 从数据库查询所有菜品，按更新时间和 ID 倒序排列。
         .stream()
         .map(DishView::from) // 将 Dish 实体转换为 DishView 响应对象。
@@ -41,6 +43,7 @@ public class MenuService {
 
     @Transactional
     public SubmissionReceipt submit(SubmissionCommand command) {
+        // 提交菜品变更申请
         ChangeOperation operation = parseEnum(ChangeOperation.class, command.operation(), "请选择有效的提交操作");
         Long dishId = parseLong(command.dishId(), "菜品编号无效", 1);
         Long expectedVersion = parseLong(command.expectedVersion(), "菜品版本无效", 0);
