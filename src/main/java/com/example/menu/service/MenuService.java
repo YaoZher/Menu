@@ -23,14 +23,15 @@ public class MenuService {
     }
 
     @Transactional(readOnly = true) // 只读事务：这个事务预期只读取数据。
-    /*
-    在 Spring Data JPA + Hibernate 环境下，这可能带来以下优化：
-    1.Hibernate 可以采用更适合只读操作的刷新和脏检查策略。
-    2.JDBC 连接可能被设置为只读，具体取决于事务管理器与驱动。
-    3.可以明确区分查询操作和写入操作。
-    */
+    
+    //在 Spring Data JPA + Hibernate 环境下，这可能带来以下优化：
+    //1.Hibernate 可以采用更适合只读操作的刷新和脏检查策略。
+    //2.JDBC 连接可能被设置为只读，具体取决于事务管理器与驱动。
+    //3.可以明确区分查询操作和写入操作。
 
     // readOnly = true 不等于禁止执行 INSERT、UPDATE、DELETE。
+    // 它主要是一个只读提示和优化配置，并非绝对的写入权限控制。
+    // 某些数据库或驱动会执行限制，但不能依靠这个注解保证数据库无法被修改。
     public List<DishView> listMenu() {
         return dishes.findAllByOrderByUpdatedAtDescIdDesc() // 从数据库查询所有菜品，按更新时间和 ID 倒序排列。
         .stream()
