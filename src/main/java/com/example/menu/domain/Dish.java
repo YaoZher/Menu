@@ -8,7 +8,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "dishes")
 public class Dish {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) // 注释：@GeneratedValue 用于自动生成主键值，strategy = GenerationType.IDENTITY 表示使用数据库的自增列来生成主键值。每次插入新记录时，数据库会自动为该字段分配一个唯一的值。
     private Long id;
     @Column(nullable = false, length = 80)
     private String name;
