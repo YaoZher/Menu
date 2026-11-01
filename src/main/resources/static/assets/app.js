@@ -2,6 +2,7 @@ import { $, api, writeApi, configureDialogs, toast, authExpired } from './common
 import { initializeMenu, refreshMenu, openDishEditor } from './menu.js';
 import { initializeReviews, loadReviews } from './chef.js';
 import { initializeShopping, loadShopping, addToShopping, isInShopping, clearShoppingState } from './shopping.js';
+import { createNavigationMotion } from './navigation-motion.js';
 
 const views = {
   menu: { path: '/', node: $('#menu'), title: '菜单' },
@@ -9,6 +10,7 @@ const views = {
   review: { path: '/chef', node: $('#review-view'), title: '审核 · 菜单' }
 };
 const scrollPositions = new Map();
+const navigationMotion = createNavigationMotion($('#chef-nav'));
 let activeView = 'menu';
 let sessionReady = false;
 let authenticated = false;
@@ -32,13 +34,13 @@ function showView(name, { historyMode = 'push', refresh = true, focus = true } =
   else if (historyMode === 'push' && location.pathname !== next.path) history.pushState({ menuView: name }, '', next.path);
   for (const [viewName, view] of Object.entries(views)) {
     view.node.hidden = viewName !== name;
-    view.node.classList.toggle('view-enter', viewName === name);
   }
   $('#chef-nav').querySelectorAll('a').forEach(link => {
     if (link.dataset.view === name) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   });
   $('#add-dish').hidden = name !== 'menu';
+  navigationMotion.sync({ animate: changed && focus });
   $('#skip-content').href = `#${next.node.id}`;
   document.title = next.title;
   document.body.dataset.view = name;

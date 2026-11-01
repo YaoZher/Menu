@@ -1,0 +1,66 @@
+/* Short, local feedback; page contents and action buttons stay visible. */
+:root { --motion-ease: cubic-bezier(.22, 1, .36, 1); }
+.icon-button, .add-button, .button, .text-button, .filter-button, .tag-option, .tag-category, button.tag-chip, .note-tool {
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms var(--motion-ease);
+}
+.icon-button:not(:disabled):active, .add-button:not(:disabled):active, .button:not(:disabled):active,
+.text-button:not(:disabled):active, .filter-button:not(:disabled):active, .tag-option:not(:disabled):active,
+.tag-category:not(:disabled):active, button.tag-chip:not(:disabled):active, .note-tool:not(:disabled):active { transform: scale(.96); }
+.search-field input, .field input, .field textarea, .tag-search, .tag-manager-fields select {
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.menu-tag-filter > summary .icon, .prep-chevron, .review-chevron, .shopping-prep summary .icon {
+  transition: transform 200ms var(--motion-ease);
+}
+.menu-tag-filter { transition: padding-bottom 220ms var(--motion-ease); }
+.selected-tag { animation: chip-enter 180ms var(--motion-ease); }
+@keyframes chip-enter { from { transform: translateY(3px) scale(.94); } to { transform: none; } }
+.ingredient-row { border-radius: 8px; transition: background-color 180ms ease; }
+.ingredient-row:has(input:checked) { background: #254d4208; }
+.ingredient-row input { transition: transform 160ms var(--motion-ease), box-shadow 160ms ease; }
+.ingredient-row input:active { transform: scale(.9); }
+.ingredient-row span { transition: color 180ms ease; }
+.ingredient-row input:checked { animation: check-confirm 200ms var(--motion-ease); }
+@keyframes check-confirm { 0% { transform: scale(.88); } 60% { transform: scale(1.08); } 100% { transform: none; } }
+.toast { animation: toast-enter 220ms var(--motion-ease); }
+.toast.is-leaving { animation: toast-exit 160ms ease-in both; pointer-events: none; }
+@keyframes toast-enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes toast-exit { to { opacity: 0; transform: translateY(6px); } }
+
+/* Native dialog transitions keep focus, Escape and rapid reopen behavior intact. */
+@supports (transition-behavior: allow-discrete) {
+  .dialog {
+    opacity: 0;
+    transform: translateY(10px) scale(.985);
+    transition: opacity 160ms ease, transform 220ms var(--motion-ease), display 220ms allow-discrete, overlay 220ms allow-discrete;
+  }
+  .dialog[open] { opacity: 1; transform: none; }
+  .dialog::backdrop {
+    opacity: 0;
+    transition: opacity 160ms ease, display 220ms allow-discrete, overlay 220ms allow-discrete;
+  }
+  .dialog[open]::backdrop { opacity: 1; }
+  @starting-style {
+    .dialog[open] { opacity: 0; transform: translateY(10px) scale(.985); }
+    .dialog[open]::backdrop { opacity: 0; }
+  }
+  @media (max-width: 640px) {
+    .dialog { transform: translateY(20px); }
+    .dialog[open] { transform: none; }
+    @starting-style { .dialog[open] { transform: translateY(20px); } }
+  }
+}
+
+/* Unsupported browsers retain native, immediate disclosure behavior. */
+@supports (interpolate-size: allow-keywords) and selector(details::details-content) {
+  :is(.dish-prep, .shopping-prep, .review-entry, .menu-tag-filter, .tag-manager) { interpolate-size: allow-keywords; }
+  :is(.dish-prep, .shopping-prep, .review-entry, .menu-tag-filter, .tag-manager)::details-content {
+    block-size: 0;
+    overflow: clip;
+    transition: block-size 220ms var(--motion-ease), content-visibility 220ms allow-discrete;
+  }
+  :is(.dish-prep, .shopping-prep, .review-entry, .menu-tag-filter, .tag-manager)[open]::details-content { block-size: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after, dialog::backdrop, details::details-content { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

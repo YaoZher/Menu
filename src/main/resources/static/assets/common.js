@@ -80,10 +80,21 @@ export function toast(title, detail = '', duration = 11000) {
   close.type = 'button';
   close.setAttribute('aria-label', '关闭通知');
   close.append(icon('close'));
-  close.addEventListener('click', () => box.remove());
+  let timer;
+  const dismiss = () => {
+    window.clearTimeout(timer);
+    if (!box.isConnected || box.classList.contains('is-leaving')) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { box.remove(); return; }
+    box.classList.add('is-leaving');
+    box.inert = true;
+    box.addEventListener('animationend', () => box.remove(), { once: true });
+    // Also finish if animations are unavailable or the motion preference changes mid-exit.
+    window.setTimeout(() => box.remove(), 180);
+  };
+  close.addEventListener('click', dismiss);
   box.append(icon('check'), text, close);
   region.append(box);
-  if (duration) window.setTimeout(() => box.remove(), duration);
+  if (duration) timer = window.setTimeout(dismiss, duration);
 }
 export function showError(node, message) { node.textContent = message || ''; node.hidden = !message; }
 export function loading(container, message) {

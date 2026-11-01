@@ -6,9 +6,6 @@
 .chef-nav a:hover { background: var(--green-light); }
 .chef-nav a[aria-current="page"] { color: white; background: var(--green); }
 .app-view { outline: none; }
-.app-view.view-enter { animation: view-enter .18s ease-out; }
-#menu.view-enter { animation: none; }
-@keyframes view-enter { from { opacity: .35; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .session-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 16px; min-height: 220px; color: var(--muted); }
 .session-status p { font-size: 14px; }
 .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
@@ -31,6 +28,5 @@
   .shopping-main { padding-top: 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .app-view.view-enter { animation: none; }
   .chef-nav a { transition: none; }
 }

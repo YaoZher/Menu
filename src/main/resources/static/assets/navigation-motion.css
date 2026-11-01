@@ -1,0 +1,10 @@
+.chef-nav { position: relative; isolation: isolate; }
+.chef-nav-marker { position: absolute; top: 0; left: 0; z-index: -1; border-radius: 9px; background: #e1e9da; pointer-events: none; }
+.chef-nav.has-nav-marker a { background: transparent; transition: color .15s ease, background-color .15s ease; }
+.chef-nav.has-nav-marker a[aria-current="page"] { color: var(--green); background: transparent; }
+@media (hover: hover) and (pointer: fine) {
+  .chef-nav.has-nav-marker a:not([aria-current="page"]):hover { background: #254d4209; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chef-nav.has-nav-marker a { transition: none; }
+}

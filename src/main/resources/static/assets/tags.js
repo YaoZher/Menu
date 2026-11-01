@@ -62,6 +62,26 @@ export function renderTagChips(tags, onSelect) {
   return row;
 }
 
+const keyedRows = new WeakMap();
+function renderKeyed(container, items, keyOf, create, update) {
+  const previous = keyedRows.get(container) || new Map();
+  const next = new Map();
+  for (const item of items) {
+    const key = String(keyOf(item));
+    const node = previous.get(key) || create(item);
+    update(node, item);
+    next.set(key, node);
+  }
+  for (const [key, node] of previous) if (!next.has(key)) node.remove();
+  let index = 0;
+  for (const node of next.values()) {
+    // Leave unchanged controls attached so focus, pressed feedback and CSS transitions survive.
+    if (container.children[index] !== node) container.insertBefore(node, container.children[index] || null);
+    index += 1;
+  }
+  keyedRows.set(container, next);
+}
+
 export function createTagPicker(root, { mode = 'editor', isChef = false, onChange = () => {} } = {}) {
   let selected = [];
   let category = 'all';
@@ -82,6 +102,7 @@ export function createTagPicker(root, { mode = 'editor', isChef = false, onChang
   root.replaceChildren(selectedRow, tabs, search, choices, error, retry);
   const fallback = () => flattenTags(catalog).find(tag => tag.name === '未分类' && tag.categoryName === '其他');
   const controlsDisabled = () => !catalogReady || creating || Boolean(root.closest('dialog')?.dataset.busy);
+  const nodeValues = new WeakMap();
 
   function publish() { onChange([...selected]); }
   function select(tag, remove = false) {
@@ -99,36 +120,59 @@ export function createTagPicker(root, { mode = 'editor', isChef = false, onChang
   function renderChoices() {
     const tags = flattenTags(catalog).filter(tag => (category === 'all' || String(tag.categoryId) === category)
       && (!query || tag.name.toLocaleLowerCase('zh-CN').includes(query)));
-    const nodes = tags.map(tag => {
-      const button = element('button', 'tag-option', tag.name); button.type = 'button';
+    choices.querySelector('.tag-empty')?.remove();
+    renderKeyed(choices, tags, tag => tag.id, () => {
+      const button = element('button', 'tag-option'); button.type = 'button';
+      button.addEventListener('click', () => select(nodeValues.get(button)));
+      return button;
+    }, (button, tag) => {
+      nodeValues.set(button, tag);
+      if (button.textContent !== tag.name) button.textContent = tag.name;
       const active = selected.some(item => String(item.id) === String(tag.id));
       button.classList.toggle('active', active); button.setAttribute('aria-pressed', String(active));
       button.disabled = controlsDisabled();
       button.title = tag.categoryName;
-      button.addEventListener('click', () => select(tag));
-      return button;
     });
-    choices.replaceChildren(...nodes);
-    if (!nodes.length) choices.append(element('span', 'tag-empty', catalogReady ? '没有匹配标签' : catalogError ? '' : '读取标签…'));
+    if (!tags.length) choices.append(element('span', 'tag-empty', catalogReady ? '没有匹配标签' : catalogError ? '' : '读取标签…'));
   }
 
   function refresh() {
     if (!filter && catalogReady) selected = normalizeTagSelection(selected, fallback());
-    selectedRow.replaceChildren(...selected.map(tag => {
-      if (!filter && selected.length === 1 && String(tag.id) === String(fallback()?.id)) {
-        return element('span', 'tag-chip selected-tag', tag.name);
+    const isFallback = tag => !filter && selected.length === 1 && String(tag.id) === String(fallback()?.id);
+    renderKeyed(selectedRow, selected, tag => `${tag.id}:${isFallback(tag) ? 'label' : 'button'}`, tag => {
+      if (isFallback(tag)) return element('span', 'tag-chip selected-tag');
+      const button = element('button', 'tag-chip selected-tag'); button.type = 'button';
+      button.addEventListener('click', () => {
+        const focused = document.activeElement === button;
+        const adjacent = button.nextElementSibling || button.previousElementSibling;
+        const value = nodeValues.get(button);
+        select(value, true);
+        if (focused && !button.isConnected) {
+          const option = [...choices.children].find(node => String(nodeValues.get(node)?.id) === String(value.id));
+          const target = adjacent?.isConnected && adjacent.matches('button') ? adjacent : option || search;
+          target.focus({ preventScroll: true });
+        }
+      });
+      return button;
+    }, (node, tag) => {
+      nodeValues.set(node, tag);
+      const text = isFallback(tag) ? tag.name : `${tag.name} ×`;
+      if (node.textContent !== text) node.textContent = text;
+      if (node.matches('button')) {
+        node.setAttribute('aria-label', `移除标签：${tag.name}`); node.disabled = controlsDisabled();
       }
-      const button = element('button', 'tag-chip selected-tag', `${tag.name} ×`); button.type = 'button';
-      button.setAttribute('aria-label', `移除标签：${tag.name}`); button.disabled = controlsDisabled();
-      button.addEventListener('click', () => select(tag, true)); return button;
-    }));
+    });
     const groups = [{ id: 'all', name: '全部' }, ...catalog];
-    tabs.replaceChildren(...groups.map(group => {
-      const button = element('button', 'tag-category', group.name); button.type = 'button';
+    renderKeyed(tabs, groups, group => group.id, () => {
+      const button = element('button', 'tag-category'); button.type = 'button';
+      button.addEventListener('click', () => { category = String(nodeValues.get(button).id); refresh(); });
+      return button;
+    }, (button, group) => {
+      nodeValues.set(button, group);
+      if (button.textContent !== group.name) button.textContent = group.name;
       button.setAttribute('aria-pressed', String(String(group.id) === category));
       button.disabled = controlsDisabled();
-      button.addEventListener('click', () => { category = String(group.id); refresh(); }); return button;
-    }));
+    });
     search.disabled = controlsDisabled();
     renderChoices();
     if (catalogError) { showError(error, '标签加载失败'); presentedCatalogError = true; }
