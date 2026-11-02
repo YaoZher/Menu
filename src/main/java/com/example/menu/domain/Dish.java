@@ -17,7 +17,10 @@ public class Dish {
     private String videoUrl;
     @Column(length = 2000)
     private String notes;
-    @Lob // 注释: @Lob 表示该字段将被映射为数据库中的大对象（Large Object），通常用于存储大量文本或二进制数据。在不同的数据库中，@Lob 可以映射为 CLOB（Character Large Object）或 BLOB（Binary Large Object）。在这个上下文中，它用于存储菜品的详细笔记信息。
+    @Lob // 注释: @Lob 表示该字段将被映射为数据库中的大对象（Large Object），
+         // 通常用于存储大量文本或二进制数据。
+         // 在不同的数据库中，@Lob 可以映射为 CLOB（Character Large Object）或 BLOB（Binary Large Object）。
+         // 在这个上下文中，它用于存储菜品的详细笔记信息。
     @Convert(converter = NoteLinesConverter.class)
     @Column(name = "note_lines")
     private List<NoteLine> noteLines;
