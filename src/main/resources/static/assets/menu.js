@@ -1,5 +1,5 @@
 import { $, element, icon, api, writeApi, safeVideoUrl, safeImageUrl, toast, showError, loading, emptyState, setDialogBusy, authExpired } from './common.js';
-import { getNoteLines, renderNoteContent, insertNoteMarker } from './notes.js';
+import { getNoteLines, insertNoteMarker } from './notes.js';
 import { ImageValidationError, prepareUploadImage, validateImageDimensions, extractVideoUrl } from './submission-input.js';
 import { createTagPicker, loadTagCatalog, matchesTagFilters, renderTagChips } from './tags.js';
 
@@ -132,13 +132,6 @@ function makeCard(dish) {
     actions.append(add);
   }
   card.append(cover, body, actions);
-  if (hasPreparation) {
-    const preparation = element('details', 'dish-prep');
-    const summary = element('summary');
-    summary.append(element('span', '', '备菜'), icon('chevron', 'icon prep-chevron'));
-    preparation.append(summary, renderNoteContent(dish));
-    card.append(preparation);
-  }
   return card;
 }
 
