@@ -7,7 +7,7 @@ import jakarta.persistence.AttributeConverter;
 import jakarta.persistence.Converter;
 import java.util.List;
 
-@Converter
+@Converter // 注释：@Converter 表示该类是一个 JPA 属性转换器，用于将实体类的属性值转换为数据库列的值，反之亦然。
 public class NoteLinesConverter implements AttributeConverter<List<NoteLine>, String> {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final TypeReference<List<NoteLine>> TYPE = new TypeReference<>() { };
