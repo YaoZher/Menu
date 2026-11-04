@@ -27,7 +27,7 @@ public class Dish {
     @Column(name = "note_lines")
     private List<NoteLine> noteLines;
     @Lob
-    @Convert(converter = TagRefsConverter.class) // 注释：converted = TagRefsConverter.class 
+    @Convert(converter = TagRefsConverter.class) // 注释：converter = TagRefsConverter.class 
                                                  // 表示使用自定义的转换器 TagRefsConverter 来处理 tags 字段的持久化和读取。
     private List<TagRef> tags;
     @Version
