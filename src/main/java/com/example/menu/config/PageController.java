@@ -8,6 +8,8 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+// 处理前端页面请求的控制器，主要用于转发请求到相应的 HTML 页面。
+
 @Controller
 public class PageController {
     @GetMapping({"/chef", "/chef/", "/chef.html", "/shopping", "/shopping/"})
