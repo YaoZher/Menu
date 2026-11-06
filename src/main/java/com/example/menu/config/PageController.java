@@ -31,10 +31,14 @@ public class PageController {
     @GetMapping("/api/session")
     @ResponseBody
     Map<String, Object> session(Authentication authentication) {
-        
+
         // 检查当前用户是否经过身份验证，并且是否具有 "ROLE_CHEF" 权限。
-        boolean chef = authentication != null && authentication.isAuthenticated()
-                && authentication.getAuthorities().stream().anyMatch(role -> role.getAuthority().equals("ROLE_CHEF"));
+        boolean chef = authentication != null 
+                && authentication.isAuthenticated()                     // 检查用户是否经过身份验证
+                && authentication.getAuthorities()                      // 获取用户的权限列表
+                                 .stream()                              // 转换为流
+                                 .anyMatch(role -> role.getAuthority()  // 检查是否有任何权限的名称为 "ROLE_CHEF"
+                                                       .equals("ROLE_CHEF"));
         return chef ? Map.of("authenticated", true, "username", authentication.getName()) : Map.of("authenticated", false);
     }
 }
