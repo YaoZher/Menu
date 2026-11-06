@@ -13,7 +13,8 @@ public interface ShoppingEntryRepository extends JpaRepository<ShoppingEntry, UU
     Optional<ShoppingEntry> findByOwnerAndDishId(String owner, Long dishId);
     Optional<ShoppingEntry> findByIdAndOwner(UUID id, String owner);
 
-    // Obtain only the parent id before locking it; do not cache a stale entry in the persistence context.
+    // 只获取父级 ID，然后再对其加锁，
+    // 不要在持久化上下文中缓存过时的条目。
     @Query("select e.dish.id from ShoppingEntry e where e.id = :id and e.owner = :owner")
     Optional<Long> findDishId(@Param("id") UUID id, @Param("owner") String owner);
 }
