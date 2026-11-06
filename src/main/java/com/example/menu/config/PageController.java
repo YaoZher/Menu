@@ -31,6 +31,8 @@ public class PageController {
     @GetMapping("/api/session")
     @ResponseBody
     Map<String, Object> session(Authentication authentication) {
+        
+        // 检查当前用户是否经过身份验证，并且是否具有 "ROLE_CHEF" 权限。
         boolean chef = authentication != null && authentication.isAuthenticated()
                 && authentication.getAuthorities().stream().anyMatch(role -> role.getAuthority().equals("ROLE_CHEF"));
         return chef ? Map.of("authenticated", true, "username", authentication.getName()) : Map.of("authenticated", false);
