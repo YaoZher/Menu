@@ -18,7 +18,9 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.savedrequest.NullRequestCache;
 
-@Configuration
+@Configuration 
+// 配置 Spring Security 的安全设置，包括用户认证、授权、登录、登出和请求速率限制等功能。
+
 public class SecurityConfig {
     @Bean
     PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(); }
