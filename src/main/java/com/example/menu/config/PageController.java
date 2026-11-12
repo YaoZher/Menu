@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 @Controller
 public class PageController {
-    @GetMapping({"/chef", "/chef/", "/chef.html", "/shopping", "/shopping/"})
+    @GetMapping({"/chef", "/chef/", "/chef.html", "/shopping", "/shopping/", "/dish/{id}", "/dish/{id}/"})
     String chef() { return "forward:/index.html"; }
 
     @GetMapping("/chef/login")

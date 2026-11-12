@@ -24,9 +24,10 @@ final class RequestRateLimitFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String path = request.getServletPath();
         boolean login = path.equals("/api/chef/login");
-        if (request.getMethod().equals("POST") && (login || path.equals("/api/submissions"))) {
-            long duration = (login ? Duration.ofMinutes(1) : Duration.ofHours(1)).toMillis();
-            int limit = login ? 10 : 30;
+        boolean shopping = path.equals("/api/shopping");
+        if (request.getMethod().equals("POST") && (login || shopping || path.equals("/api/submissions"))) {
+            long duration = (login || shopping ? Duration.ofMinutes(1) : Duration.ofHours(1)).toMillis();
+            int limit = login ? 10 : shopping ? 60 : 30;
             long retry = reserve(path + ":" + request.getRemoteAddr(), duration, limit);
             if (retry > 0) {
                 response.setHeader("Retry-After", Long.toString(retry));

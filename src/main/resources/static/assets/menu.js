@@ -2,6 +2,7 @@ import { $, element, icon, api, writeApi, safeVideoUrl, safeImageUrl, toast, sho
 import { getNoteLines, insertNoteMarker } from './notes.js';
 import { ImageValidationError, prepareUploadImage, validateImageDimensions, extractVideoUrl } from './submission-input.js';
 import { createTagPicker, loadTagCatalog, matchesTagFilters, renderTagChips } from './tags.js';
+import { createDishImage } from './dish-image.js';
 
 let dishes = [];
 let activeFilter = 'all';
@@ -22,6 +23,10 @@ let menuLoadSequence = 0;
 let tagEditor = null;
 let tagFilter = null;
 let activeTagFilters = [];
+let detailDishId = null;
+let detailSequence = 0;
+let renderedDetail = null;
+const cardsById = new Map();
 const addingDishIds = new Set();
 const content = $('#menu-content');
 const dishDialog = $('#dish-dialog');
@@ -61,18 +66,18 @@ function updateShoppingButton(button) {
 }
 
 function updateShoppingButtons() {
-  content.querySelectorAll('.shopping-add-button').forEach(updateShoppingButton);
+  document.querySelectorAll('.shopping-add-button').forEach(updateShoppingButton);
 }
 
 async function addDishToShopping(dish) {
-  if (!chefMode || !addToShopping || addingDishIds.has(dish.id) || isInShopping(dish.id)) return;
+  if (!addToShopping || addingDishIds.has(dish.id) || isInShopping(dish.id)) return;
   addingDishIds.add(dish.id);
   updateShoppingButtons();
   try {
     await addToShopping(dish);
     toast('已加入待采购', dish.name, 3500);
   } catch (error) {
-    if (!authExpired(error)) toast('添加失败', error.message);
+    toast('添加失败', error.message);
   } finally {
     addingDishIds.delete(dish.id);
     updateShoppingButtons();
@@ -83,56 +88,113 @@ function imageFallback(cover) {
   cover.replaceChildren(icon('bowl', 'bowl-icon'));
 }
 
-function makeCard(dish) {
-  const card = element('article', 'dish-card');
-  const cover = element('div', 'dish-cover');
+function makeCover(dish, className = 'dish-cover', eager = false) {
+  const cover = element('div', className);
   const imageUrl = safeImageUrl(dish.imageUrl);
   if (imageUrl) {
-    const image = element('img');
-    image.src = imageUrl; image.alt = dish.name; image.loading = 'lazy';
-    image.addEventListener('error', () => imageFallback(cover), { once: true });
-    cover.append(image);
+    cover.append(createDishImage(imageUrl, dish.name, { eager, onError: () => imageFallback(cover) }));
   } else imageFallback(cover);
+  return cover;
+}
+
+function plainNotes(dish) {
+  return getNoteLines(dish).filter(line => line.type === 'NOTE').map(line => line.text).join('\n');
+}
+
+function makeShoppingButton(dish) {
+  const add = element('button', 'icon-button shopping-add-button');
+  add.type = 'button';
+  add.dataset.dishId = dish.id;
+  add.dataset.dishName = dish.name;
+  updateShoppingButton(add);
+  add.addEventListener('click', () => addDishToShopping(dish));
+  return add;
+}
+
+function makeCard(dish) {
+  const card = element('article', 'dish-card');
+  const link = element('a', 'dish-card-link');
+  link.href = `/dish/${dish.id}`;
+  link.setAttribute('aria-label', `查看${dish.name}详情`);
+  link.addEventListener('click', event => {
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    event.preventDefault();
+    document.dispatchEvent(new CustomEvent('menu:open-dish', { detail: { id: dish.id } }));
+  });
   const body = element('div', 'dish-body');
   body.append(element('h3', '', dish.name));
-  body.append(renderTagChips(dish.tags, tag => {
-    tagFilter.setSelection([tag], true);
-    $('#menu-tag-filter').open = true;
-  }));
-  const noteLines = getNoteLines(dish);
-  const hasPreparation = noteLines.some(line => line.type !== 'NOTE');
-  if (!hasPreparation && dish.notes) body.append(element('p', 'dish-notes', dish.notes));
-  const meta = element('div', 'dish-meta');
+  body.append(renderTagChips(dish.tags));
+  const notes = plainNotes(dish);
+  if (notes) body.append(element('p', 'dish-notes', notes));
+  link.append(makeCover(dish), body);
+  const actions = element('div', 'card-actions');
+  actions.append(makeShoppingButton(dish));
+  card.append(link, actions);
+  return card;
+}
+
+function renderDishDetail(dish) {
+  const detail = $('#dish-detail-content');
+  detail.setAttribute('aria-busy', 'false');
+  if (!dish) {
+    renderedDetail = null;
+    detail.replaceChildren(emptyState({ title: '菜品已移除', actionText: '返回菜单', action: () => {
+      document.dispatchEvent(new CustomEvent('menu:open-menu'));
+    } }));
+    return;
+  }
+  const fingerprint = JSON.stringify(dish);
+  if (location.pathname === `/dish/${dish.id}`) document.title = `${dish.name} · 菜单`;
+  if (renderedDetail === fingerprint && detail.querySelector('.dish-detail')) {
+    updateShoppingButtons();
+    return;
+  }
+  renderedDetail = fingerprint;
+  const article = element('article', 'dish-detail dish-detail-layout');
+  const body = element('div', 'dish-detail-body');
+  const heading = element('div', 'dish-detail-heading');
+  heading.append(element('h1', '', dish.name));
+  body.append(heading, renderTagChips(dish.tags));
+  const notes = plainNotes(dish);
+  if (notes) body.append(element('p', 'dish-notes', notes));
   const video = safeVideoUrl(dish.videoUrl);
   if (video) {
     const link = element('a', 'video-link');
     link.href = video; link.target = '_blank'; link.rel = 'noopener noreferrer';
     link.setAttribute('aria-label', `观看${dish.name}的视频（新窗口打开）`);
     link.append(icon('play'), element('span', '', '视频'));
-    meta.append(link);
-    body.append(meta);
+    body.append(link);
   }
-  const actions = element('div', 'card-actions');
-  const edit = element('button', 'icon-button');
-  edit.type = 'button'; edit.append(icon('edit')); edit.title = '修改';
+  const actions = element('div', 'dish-detail-actions');
+  const edit = element('button', 'text-button');
+  edit.type = 'button'; edit.append(icon('edit'), element('span', '', '编辑'));
   edit.setAttribute('aria-label', `${chefMode ? '修改' : '申请修改'}${dish.name}`);
   edit.addEventListener('click', () => openDishEditor(dish));
-  const remove = element('button', 'icon-button danger-text');
-  remove.type = 'button'; remove.append(icon('trash')); remove.title = '删除';
+  const remove = element('button', 'text-button danger-text');
+  remove.type = 'button'; remove.append(icon('trash'), element('span', '', '删除'));
   remove.setAttribute('aria-label', `${chefMode ? '删除' : '申请删除'}${dish.name}`);
   remove.addEventListener('click', () => openDelete(dish));
-  actions.append(edit, remove);
-  if (chefMode) {
-    const add = element('button', 'icon-button shopping-add-button');
-    add.type = 'button';
-    add.dataset.dishId = dish.id;
-    add.dataset.dishName = dish.name;
-    updateShoppingButton(add);
-    add.addEventListener('click', () => addDishToShopping(dish));
-    actions.append(add);
+  actions.append(edit, remove, makeShoppingButton(dish));
+  body.append(actions);
+  article.append(makeCover(dish, 'dish-detail-cover', true), body);
+  detail.replaceChildren(article);
+}
+
+export async function showDishDetail(id) {
+  detailDishId = id;
+  const sequence = ++detailSequence;
+  const detail = $('#dish-detail-content');
+  if (!menuLoaded) {
+    loading(detail, '');
+    await refreshMenu();
+    if (sequence !== detailSequence) return;
+    if (!menuLoaded) {
+      detail.setAttribute('aria-busy', 'false');
+      detail.replaceChildren(emptyState({ title: '加载失败', actionText: '重试', action: () => showDishDetail(id), symbol: 'refresh' }));
+      return;
+    }
   }
-  card.append(cover, body, actions);
-  return card;
+  renderDishDetail(dishes.find(dish => dish.id === id));
 }
 
 function renderMenu() {
@@ -141,8 +203,10 @@ function renderMenu() {
   $('#menu-count').textContent = String(dishes.length);
   const query = $('#menu-search').value.trim().toLocaleLowerCase('zh-CN');
   const visible = dishes.filter(dish => (!query || `${dish.name} ${dish.notes || ''}`.toLocaleLowerCase('zh-CN').includes(query))
-    && (activeFilter === 'all' || activeFilter === 'image' && dish.imageUrl || activeFilter === 'video' && dish.videoUrl)
+    && (activeFilter === 'all' || dish.tags?.some(tag => tag.name === activeFilter && tag.categoryName === '菜品类型'))
     && matchesTagFilters(dish.tags, activeTagFilters));
+  const availableIds = new Set(dishes.map(dish => dish.id));
+  for (const id of cardsById.keys()) if (!availableIds.has(id)) cardsById.delete(id);
   if (!dishes.length) {
     content.replaceChildren(emptyState({ title: '暂无菜品' }));
     return;
@@ -153,9 +217,23 @@ function renderMenu() {
     } }));
     return;
   }
-  const grid = element('div', 'menu-grid');
-  visible.forEach(dish => grid.append(makeCard(dish)));
-  content.replaceChildren(grid);
+  const grid = content.querySelector('.menu-grid') || element('div', 'menu-grid');
+  const nextCards = visible.map(dish => {
+    const fingerprint = JSON.stringify(dish);
+    let cached = cardsById.get(dish.id);
+    if (!cached || cached.fingerprint !== fingerprint) {
+      cached = { fingerprint, node: makeCard(dish) };
+      cardsById.set(dish.id, cached);
+    }
+    return cached.node;
+  });
+  const selectedCards = new Set(nextCards);
+  for (const node of [...grid.children]) if (!selectedCards.has(node)) node.remove();
+  nextCards.forEach((node, index) => {
+    if (grid.children[index] !== node) grid.insertBefore(node, grid.children[index] || null);
+  });
+  if (grid.parentNode !== content) content.replaceChildren(grid);
+  updateShoppingButtons();
 }
 
 export async function refreshMenu() {
@@ -167,6 +245,7 @@ export async function refreshMenu() {
     if (sequence !== menuLoadSequence) return;
     if (!Array.isArray(result)) throw new Error('菜单暂时无法读取，请重试。');
     dishes = result; menuLoaded = true; renderMenu();
+    if (detailDishId !== null && !$('#dish-detail-view').hidden) renderDishDetail(dishes.find(dish => dish.id === detailDishId));
   } catch (error) {
     if (sequence !== menuLoadSequence) return;
     content.setAttribute('aria-busy', 'false');
@@ -339,6 +418,7 @@ $('#delete-form').addEventListener('submit', async event => {
       toast('已删除', '', 3500);
       await refreshMenu();
       document.dispatchEvent(new CustomEvent('menu:changed'));
+      if (detailDishId === deleteDish.id && !$('#dish-detail-view').hidden) document.dispatchEvent(new CustomEvent('menu:detail-missing'));
     } else toast('删除申请已提交', `#${receipt.id} · 待审核`, 5000);
   } catch (error) {
     if (!chefMode || !authExpired(error)) showError($('#delete-error'), error.message);

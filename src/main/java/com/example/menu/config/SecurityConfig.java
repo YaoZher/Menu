@@ -44,9 +44,9 @@ public class SecurityConfig {
     SecurityFilterChain security(HttpSecurity http, ObjectMapper mapper,
             @Value("${app.rate-limit.enabled:true}") boolean rateLimitEnabled) throws Exception {
         http.authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.POST, "/api/submissions", "/api/chef/login", "/api/chef/logout").permitAll()
-                .requestMatchers("/api/chef/**", "/chef", "/chef/", "/chef.html", "/shopping", "/shopping/").hasRole("CHEF")
-                .requestMatchers(HttpMethod.GET, "/", "/index.html", "/chef/login", "/login.html", "/assets/**", "/favicon.ico", "/api/menu", "/api/tags", "/api/session", "/api/csrf", "/media/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/submissions", "/api/shopping", "/api/chef/login", "/api/chef/logout").permitAll()
+                .requestMatchers("/api/chef/**", "/chef", "/chef/", "/chef.html").hasRole("CHEF")
+                .requestMatchers(HttpMethod.GET, "/", "/index.html", "/shopping", "/shopping/", "/dish/*", "/dish/*/", "/chef/login", "/login.html", "/assets/**", "/favicon.ico", "/api/menu", "/api/shopping", "/api/tags", "/api/session", "/api/csrf", "/media/**").permitAll()
                 .requestMatchers("/error").permitAll()
                 .anyRequest().denyAll());
         http.requestCache(cache -> cache.requestCache(new NullRequestCache()));

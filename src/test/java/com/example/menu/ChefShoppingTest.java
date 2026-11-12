@@ -47,10 +47,13 @@ class ChefShoppingTest {
                 .andExpect(jsonPath("$.authenticated").value(true)).andExpect(jsonPath("$.username").value("chef"));
         mvc.perform(get("/api/session").with(user("visitor").roles("USER")))
                 .andExpect(jsonPath("$.authenticated").value(false));
-        for (String path : List.of("/chef", "/chef/", "/chef.html", "/shopping", "/shopping/")) {
+        for (String path : List.of("/chef", "/chef/", "/chef.html")) {
             mvc.perform(get(path)).andExpect(status().is3xxRedirection()).andExpect(redirectedUrl("/chef/login"));
             mvc.perform(get(path).with(user("chef").roles("CHEF")))
                     .andExpect(status().isOk()).andExpect(forwardedUrl("/index.html"));
+        }
+        for (String path : List.of("/shopping", "/shopping/", "/dish/1", "/dish/1/")) {
+            mvc.perform(get(path)).andExpect(status().isOk()).andExpect(forwardedUrl("/index.html"));
         }
         mvc.perform(get("/api/chef/shopping")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/chef/shopping").with(user("visitor").roles("USER"))).andExpect(status().isForbidden());

@@ -11,6 +11,7 @@ let revision = 0;
 let sessionEpoch = 0;
 let onEditDish = () => {};
 let onChanged = () => {};
+let chefMode = false;
 const busy = new Set();
 const adding = new Map();
 const checkQueues = new Map();
@@ -24,6 +25,7 @@ function changed() {
 }
 
 export function initializeShopping(options = {}) {
+  chefMode = Boolean(options.isChef);
   onEditDish = options.onEditDish || onEditDish;
   onChanged = options.onChanged || onChanged;
   if (initialized) return;
@@ -68,16 +70,18 @@ export async function loadShopping() {
   $('#refresh-shopping').disabled = true;
   const request = (async () => {
     try {
-      const data = await api('/api/chef/shopping');
+      const data = await api('/api/shopping');
       if (!Array.isArray(data)) throw new Error('清单读取失败，请重试。');
       if (epoch !== sessionEpoch) return entries;
       if (version !== revision) { refreshRequested = true; return entries; }
+      const unchanged = ready && JSON.stringify(entries) === JSON.stringify(data);
       entries = data; ready = true;
-      renderShopping(); changed();
+      if (!unchanged) renderShopping();
+      changed();
     } catch (error) {
       if (epoch !== sessionEpoch) return entries;
       if (version !== revision) { refreshRequested = true; return entries; }
-      if (authExpired(error)) { refreshRequested = false; return entries; }
+      if (chefMode && authExpired(error)) { refreshRequested = false; return entries; }
       content.setAttribute('aria-busy', 'false');
       if (ready) toast('刷新失败', error.message);
       else content.replaceChildren(emptyState({ title: '加载失败', message: error.message, actionText: '重试', action: loadShopping, symbol: 'refresh' }));
@@ -110,7 +114,7 @@ export async function addToShopping(dish) {
   if (adding.has(dish.id)) return adding.get(dish.id);
   revision += 1;
   const request = (async () => {
-    const entry = await writeApi('/api/chef/shopping', {
+    const entry = await writeApi('/api/shopping', {
       headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dishId: dish.id })
     });
     if (epoch !== sessionEpoch) return entry;
@@ -136,6 +140,8 @@ function iconButton(symbol, label, action) {
 
 function shoppingCard(entry) {
   const card = element('article', 'shopping-card');
+  card.entryFingerprint = JSON.stringify(entry);
+  card.entryBusy = busy.has(entry.id);
   card.dataset.shoppingId = entry.id;
   card.dataset.dishVersion = entry.dish.version;
   const heading = element('div', 'shopping-card-heading');
@@ -143,7 +149,7 @@ function shoppingCard(entry) {
   title.id = `shopping-dish-${entry.id}`;
   card.setAttribute('aria-labelledby', title.id);
   const actions = element('div', 'shopping-card-actions');
-  actions.append(
+  if (chefMode) actions.append(
     iconButton('edit', `修改${entry.dish.name}的原料与做法`, () => onEditDish(entry.dish)),
     iconButton('close', `将${entry.dish.name}移出待采购`, () => removeEntry(entry))
   );
@@ -160,6 +166,7 @@ function shoppingCard(entry) {
       const label = element('label', 'ingredient-row');
       const checkbox = element('input');
       checkbox.type = 'checkbox'; checkbox.checked = checked(ingredient);
+      checkbox.disabled = !chefMode;
       checkbox.id = `ingredient-${ingredient.id}`;
       checkbox.dataset.ingredientId = ingredient.id;
       checkbox.addEventListener('change', () => {
@@ -171,7 +178,7 @@ function shoppingCard(entry) {
       row.append(label); list.append(row);
     }
     card.append(list);
-  } else {
+  } else if (chefMode) {
     const add = element('button', 'text-button shopping-add-ingredients', '添加原料');
     add.type = 'button'; add.addEventListener('click', () => onEditDish(entry.dish));
     card.append(add);
@@ -208,7 +215,9 @@ function refreshCard(entry, focusId) {
     && checkboxes.length === entry.ingredients.length
     && checkboxes.every((input, index) => input.dataset.ingredientId === String(entry.ingredients[index].id));
   if (sameRecipe) {
-    const disabled = busy.has(entry.id);
+    card.entryFingerprint = JSON.stringify(entry);
+    card.entryBusy = busy.has(entry.id);
+    const disabled = !chefMode || busy.has(entry.id);
     let checkedCount = 0;
     checkboxes.forEach((input, index) => {
       const ingredient = entry.ingredients[index];
@@ -242,16 +251,26 @@ function renderShopping(focusId) {
       if (menuLink) menuLink.click(); else location.assign('/');
     }, symbol: 'bowl' }));
   } else {
-    const grid = element('div', 'shopping-grid');
-    entries.forEach(entry => grid.append(shoppingCard(entry)));
-    content.replaceChildren(grid);
+    const grid = content.querySelector('.shopping-grid') || element('div', 'shopping-grid');
+    const current = new Map([...grid.children].map(card => [card.dataset.shoppingId, card]));
+    const next = entries.map(entry => {
+      const card = current.get(String(entry.id));
+      return card && card.entryFingerprint === JSON.stringify(entry) && card.entryBusy === busy.has(entry.id)
+        ? card : shoppingCard(entry);
+    });
+    const retained = new Set(next);
+    for (const card of [...grid.children]) if (!retained.has(card)) card.remove();
+    next.forEach((card, index) => {
+      if (grid.children[index] !== card) grid.insertBefore(card, grid.children[index] || null);
+    });
+    if (grid.parentNode !== content) content.replaceChildren(grid);
   }
   const restoreId = activeIngredient || focusId;
   if (restoreId && !$('#shopping-view').hidden) document.getElementById(restoreId)?.focus({ preventScroll: true });
 }
 
 function setChecked(entry, ingredient, checked) {
-  if (busy.has(entry.id)) return;
+  if (!chefMode || busy.has(entry.id)) return;
   let queue = checkQueues.get(entry.id);
   if (!queue) {
     queue = new OptimisticCheckQueue(entry.ingredients);
@@ -342,7 +361,7 @@ function drainChecks(entryId, queue) {
 }
 
 async function removeEntry(entry) {
-  if (busy.has(entry.id)) return;
+  if (!chefMode || busy.has(entry.id)) return;
   const epoch = sessionEpoch;
   revision += 1; busy.add(entry.id); renderShopping();
   try {

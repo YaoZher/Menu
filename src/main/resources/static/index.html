@@ -13,16 +13,17 @@
   <link rel="stylesheet" href="/assets/tags.css">
   <link rel="stylesheet" href="/assets/navigation-motion.css">
   <link rel="stylesheet" href="/assets/motion.css">
+  <link rel="stylesheet" href="/assets/ordering.css">
   <script type="module" src="/assets/app.js"></script>
 </head>
 <body class="menu-page">
   <a class="skip-link" id="skip-content" href="#menu">跳到内容</a>
   <header class="site-header wrap">
     <a class="brand" href="/" data-view="menu" aria-label="菜单首页"><img src="/assets/mark.svg" width="32" height="32" alt=""><span>菜单</span></a>
-    <nav class="chef-nav" id="chef-nav" aria-label="厨师导航" hidden>
+    <nav class="chef-nav" id="chef-nav" aria-label="页面导航" hidden>
       <a href="/" data-view="menu" aria-current="page">菜单</a>
       <a href="/shopping" data-view="shopping">待采购</a>
-      <a href="/chef" data-view="review">审核</a>
+      <a href="/chef" data-view="review" hidden>审核</a>
     </nav>
     <div class="header-actions">
       <a class="icon-button chef-link" id="chef-login" href="/chef/login" aria-label="厨师登录" title="厨师登录" hidden><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#chef"/></svg></a>
@@ -36,8 +37,12 @@
       <label class="search-field"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#search"/></svg><input type="search" id="menu-search" placeholder="搜索菜品" aria-label="搜索菜名或备注" maxlength="100"></label>
       <div class="filter-tabs" role="group" aria-label="筛选菜单">
         <button class="filter-button active" data-filter="all" aria-pressed="true">全部 <span id="menu-count">—</span></button>
-        <button class="filter-button" data-filter="image" aria-pressed="false">有图</button>
-        <button class="filter-button" data-filter="video" aria-pressed="false">视频</button>
+        <button class="filter-button" data-filter="主食" aria-pressed="false">主食</button>
+        <button class="filter-button" data-filter="前菜" aria-pressed="false">前菜</button>
+        <button class="filter-button" data-filter="主菜" aria-pressed="false">主菜</button>
+        <button class="filter-button" data-filter="配菜" aria-pressed="false">配菜</button>
+        <button class="filter-button" data-filter="汤" aria-pressed="false">汤</button>
+        <button class="filter-button" data-filter="水果" aria-pressed="false">水果</button>
       </div>
     </div>
     <details class="menu-tag-filter" id="menu-tag-filter">
@@ -46,6 +51,10 @@
       <div class="tag-picker" id="menu-tag-picker"></div>
     </details>
     <div id="menu-content" aria-live="polite" aria-busy="true"><div class="loading-state"><span class="spinner"></span><span class="visually-hidden">加载中</span></div></div>
+  </main>
+  <main class="wrap app-view dish-detail-view dish-detail-main" id="dish-detail-view" aria-label="菜品详情" tabindex="-1" hidden>
+    <div class="detail-toolbar"><button type="button" class="text-button" id="detail-back">← 菜单</button></div>
+    <div id="dish-detail-content" aria-live="polite"></div>
   </main>
   <main class="shopping-main wrap app-view" id="shopping-view" aria-labelledby="shopping-heading" tabindex="-1" hidden>
     <div class="page-heading"><h1 id="shopping-heading">待采购 <span id="shopping-count" class="page-count">0</span></h1><button type="button" class="icon-button" id="refresh-shopping" aria-label="刷新待采购" title="刷新"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#refresh"/></svg></button></div>
