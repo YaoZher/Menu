@@ -4,6 +4,7 @@ import { initializeReviews, loadReviews } from './chef.js';
 import { initializeShopping, loadShopping, addToShopping, isInShopping, clearShoppingState } from './shopping.js';
 import { createNavigationMotion } from './navigation-motion.js';
 import { createBackgroundMotion } from './background-motion.js';
+import { createInterfaceMotion, createFilterMotion } from './interface-motion.js';
 
 const views = {
   menu: { path: '/', node: $('#menu'), title: '菜单' },
@@ -14,6 +15,14 @@ const views = {
 const scrollPositions = new Map();
 const navigationMotion = createNavigationMotion($('#chef-nav'));
 const backgroundMotion = createBackgroundMotion();
+backgroundMotion.play({ kind: 'initial', view: viewFromPath(), key: viewFromPath() === 'review' ? 'PENDING' : 'all' });
+const interfaceMotion = createInterfaceMotion();
+const filterMotions = {
+  menu: createFilterMotion($('.menu-toolbar .filter-tabs')),
+  review: createFilterMotion($('.review-tabs'))
+};
+const filterKeys = { menu: 'all', review: 'PENDING' };
+const viewOrder = ['menu', 'detail', 'shopping', 'review'];
 let activeView = 'menu';
 let sessionReady = false;
 let authenticated = false;
@@ -36,6 +45,7 @@ function showView(name, { historyMode = 'push', refresh = true, focus = true, di
   const selectedDishId = dishId ?? Number(location.pathname.match(/^\/dish\/(\d+)/u)?.[1]);
   const path = name === 'detail' ? `/dish/${selectedDishId}` : next.path;
   const changed = activeView !== name;
+  const direction = Math.sign(viewOrder.indexOf(name) - viewOrder.indexOf(activeView)) || 1;
   scrollPositions.set(activeView, window.scrollY);
   activeView = name;
   if (historyMode === 'replace') history.replaceState({ menuView: name }, '', path);
@@ -49,13 +59,17 @@ function showView(name, { historyMode = 'push', refresh = true, focus = true, di
   });
   $('#add-dish').hidden = name !== 'menu';
   navigationMotion.sync({ animate: changed && focus });
-  if (changed || !focus) backgroundMotion.play();
   $('#skip-content').href = `#${next.node.id}`;
   document.title = next.title;
   document.body.dataset.view = name;
   if (name === 'detail') void showDishDetail(selectedDishId);
   if (changed) window.scrollTo({ top: scrollPositions.get(name) || 0, behavior: 'instant' });
   if (focus) next.node.focus({ preventScroll: true });
+  filterMotions[name]?.sync({ animate: false });
+  if (changed || !focus) {
+    if (focus) backgroundMotion.play({ kind: 'page', view: name, key: filterKeys[name] || 'all', direction });
+    interfaceMotion.page(next.node, { direction, initial: !focus });
+  }
   if (refresh) {
     if (name === 'menu') { void refreshMenu(); void loadShopping(); }
     else if (name === 'detail') void loadShopping();
@@ -122,6 +136,14 @@ document.addEventListener('menu:changed', () => {
 document.addEventListener('menu:open-dish', event => showView('detail', { dishId: event.detail.id }));
 document.addEventListener('menu:detail-missing', () => showView('menu'));
 document.addEventListener('menu:open-menu', () => showView('menu'));
+document.addEventListener('menu:filter-changed', event => {
+  const { scope, key, direction = 1 } = event.detail;
+  filterKeys[scope] = key;
+  filterMotions[scope]?.sync();
+  if (activeView !== scope) return;
+  backgroundMotion.play({ kind: 'filter', view: scope, key, direction });
+  interfaceMotion.filter(scope === 'review' ? $('#reviews-content') : $('#menu-content'), { direction });
+});
 $('#detail-back').addEventListener('click', () => showView('menu'));
 // Keep the shared order visible to a chef who already has the shopping page open.
 setInterval(() => {

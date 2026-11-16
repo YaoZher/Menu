@@ -35,7 +35,7 @@ export function createNavigationMotion(nav) {
     if (ready && animate && !preference.matches && typeof marker.animate === 'function'
         && Object.keys(next).some(key => previous[key] !== next[key])) {
       const current = marker.animate([previous, next], {
-        duration: 200, easing: 'cubic-bezier(.22, 1, .36, 1)'
+        duration: 280, easing: 'cubic-bezier(.22, 1, .36, 1)'
       });
       animation = current;
       current.finished.then(() => { if (animation === current) animation = null; }).catch(() => {});

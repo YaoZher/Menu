@@ -46,6 +46,9 @@ export function initializeMenu(options) {
     $('#menu-tag-filter-summary').title = selected.map(tag => tag.name).join('、');
     $('#clear-tag-filter').disabled = selected.length === 0;
     renderMenu();
+    document.dispatchEvent(new CustomEvent('menu:filter-changed', { detail: {
+      scope: 'menu', key: `${activeFilter}:${selected.map(tag => tag.id).sort().join(',')}`, direction: 1
+    } }));
   } });
   initialized = true;
   return Promise.all([refreshMenu(), loadTagCatalog()]);
@@ -213,7 +216,7 @@ function renderMenu() {
   }
   if (!visible.length) {
     content.replaceChildren(emptyState({ title: '未找到菜品', symbol: 'search', actionText: '重置', action: () => {
-      $('#menu-search').value = ''; activeFilter = 'all'; tagFilter.setSelection([], true); setFilter('all');
+      $('#menu-search').value = ''; tagFilter.setSelection([], true); setFilter('all');
     } }));
     return;
   }
@@ -255,12 +258,16 @@ export async function refreshMenu() {
 }
 
 function setFilter(filter) {
+  if (activeFilter === filter) return;
+  const options = [...document.querySelectorAll('[data-filter]')].map(button => button.dataset.filter);
+  const direction = Math.sign(options.indexOf(filter) - options.indexOf(activeFilter)) || 1;
   activeFilter = filter;
   document.querySelectorAll('[data-filter]').forEach(button => {
     const selected = button.dataset.filter === filter;
     button.classList.toggle('active', selected); button.setAttribute('aria-pressed', String(selected));
   });
   renderMenu();
+  document.dispatchEvent(new CustomEvent('menu:filter-changed', { detail: { scope: 'menu', key: filter, direction } }));
 }
 
 function releasePreview() {

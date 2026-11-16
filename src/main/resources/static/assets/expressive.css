@@ -1,0 +1,61 @@
+/* Soft material accents and broad plate arcs behind the working surface. */
+.menu-backdrop-expressive { contain: paint; }
+.menu-backdrop-glow {
+  position: absolute;
+  inset: -12%;
+  background:
+    radial-gradient(ellipse at 85% 13%, #c8dbc252, transparent 43%),
+    radial-gradient(ellipse at 5% 87%, #d6ddbd42, transparent 42%);
+  transform-origin: center;
+}
+.menu-orbit { position: absolute; max-width: none; transform-origin: 50% 50%; }
+.menu-orbit--near { width: 1080px; height: 1080px; top: -350px; right: -420px; opacity: .36; }
+.menu-orbit--far { width: 1000px; height: 1000px; bottom: -600px; left: -580px; opacity: .25; }
+.menu-page .chef-nav {
+  padding: 5px;
+  border-color: #607a561d;
+  border-radius: 16px;
+  background: #fffefba8;
+  box-shadow: inset 0 1px 0 #ffffffb8, 0 3px 12px #29493604;
+}
+.menu-page .chef-nav a { border-radius: 11px; }
+.menu-page .chef-nav-marker,
+.filter-selection-marker {
+  border-radius: 11px;
+  background: linear-gradient(135deg, #e4eddd, #dce7d4);
+  box-shadow: inset 0 1px 0 #ffffffe0, inset 0 -1px 0 #42613b09, 0 2px 5px #36542b07;
+}
+.motion-filter-group { position: relative; isolation: isolate; }
+.filter-selection-marker { position: absolute; top: 0; left: 0; z-index: -1; pointer-events: none; }
+.motion-filter-group.has-filter-marker > button,
+.motion-filter-group.has-filter-marker > button.active { background: transparent; }
+.motion-filter-group.has-filter-marker > button[aria-pressed="true"] { color: var(--green); }
+.menu-page .add-button, .menu-page .button.primary {
+  background: linear-gradient(150deg, #396859, #254d42);
+  box-shadow: inset 0 1px 0 #ffffff38, 0 3px 8px #254d4215;
+}
+.menu-page .card-actions .shopping-add-button,
+.menu-page .dish-detail-actions .shopping-add-button {
+  background: linear-gradient(145deg, #e5eddc, #dce6d5);
+  box-shadow: inset 0 1px 0 #ffffffba, 0 2px 4px #34573507;
+}
+.menu-page .card-actions .shopping-add-button.is-selected,
+.menu-page .dish-detail-actions .shopping-add-button.is-selected { background: #e2e9dc80; box-shadow: none; }
+.menu-page .search-field input { border-color: #74846b2a; box-shadow: inset 0 1px 0 #ffffff9c; }
+.menu-page :is(.filter-button, .tag-category, .tag-option, .text-button, .icon-button, .add-button, .button) {
+  transition: background-color 160ms ease, color 160ms ease, box-shadow 200ms ease, transform 220ms cubic-bezier(.22, 1, .36, 1);
+}
+@media (hover: hover) and (pointer: fine) {
+  .menu-page :is(.add-button, .button.primary):not(:disabled):hover { box-shadow: inset 0 1px 0 #ffffff45, 0 5px 14px #254d4220; }
+  .menu-page :is(.icon-button, .add-button, .button):not(:disabled):hover { transform: translateY(-1px); }
+  .motion-filter-group.has-filter-marker > button:not([aria-pressed="true"]):hover { background: #254d4207; }
+}
+.menu-page :is(.icon-button, .add-button, .button, .text-button, .filter-button, .tag-option, .tag-category):not(:disabled):active { transform: scale(.95); transition-duration: 70ms; }
+@media (max-width: 700px) {
+  .menu-orbit--near { width: 760px; height: 760px; top: -220px; right: -440px; }
+  .menu-orbit--far { width: 820px; height: 820px; bottom: -540px; left: -580px; }
+  .menu-backdrop-glow { background: radial-gradient(ellipse at 100% 10%, #c8dbc23d, transparent 55%), radial-gradient(ellipse at 0% 95%, #d6ddbd33, transparent 50%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu-page :is(.filter-button, .tag-category, .tag-option, .text-button, .icon-button, .add-button, .button) { transition: none; }
+}
