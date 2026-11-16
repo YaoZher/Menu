@@ -23,7 +23,13 @@ public class ShoppingController {
         return shopping.add(principal.getName(), request.dishId());
     }
 
-    @PatchMapping("/{entryId}/ingredients/{ingredientId}")
+    @PatchMapping("/{entryId}/ingredients/{ingredientId}")  
+        //注释：@PatchMapping 注解用于处理 HTTP PATCH 请求，表示对指定资源进行部分更新。
+        //{entryId} 和 {ingredientId} 是路径变量，用于标识要更新的购物清单条目和对应的食材。
+        //当客户端发送 PATCH 请求到 /api/chef/shopping/{entryId}/ingredients/{ingredientId} 时，
+        //该方法会被调用，接收请求体中的 CheckRequest 对象，
+        //并根据 principal 获取当前用户的身份信息，
+        //然后调用 shopping.check 方法来更新购物清单条目中的食材状态。
     public EntryView check(@PathVariable UUID entryId, @PathVariable UUID ingredientId,
                            @RequestBody CheckRequest request, Principal principal) {
         return shopping.check(principal.getName(), entryId, ingredientId, request.checked());
