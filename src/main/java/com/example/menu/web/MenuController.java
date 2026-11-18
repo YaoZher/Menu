@@ -32,7 +32,7 @@ public class MenuController {
             @RequestParam(required = false) String imageAction,
             @RequestParam(required = false) String tagIds,
             @RequestPart(required = false) MultipartFile image) {
-        return menu.submit(new SubmissionCommand(operation, dishId, expectedVersion, name,
-                videoUrl, notes, imageAction, image, tagIds));
+        return menu.submit(new SubmissionCommand(
+            operation, dishId, expectedVersion, name,videoUrl, notes, imageAction, image, tagIds));
     }
 }
