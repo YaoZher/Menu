@@ -15,13 +15,15 @@ public class MenuService {
     private final ImageService images;
     private final ShoppingService shopping;
     private final TagService tags;
+    private final MenuOrderService ordering;
 
-    public MenuService(DishRepository dishes, SubmissionRepository submissions, ImageService images, ShoppingService shopping, TagService tags) {
+    public MenuService(DishRepository dishes, SubmissionRepository submissions, ImageService images, ShoppingService shopping, TagService tags, MenuOrderService ordering) {
         this.dishes = dishes;
         this.submissions = submissions;
         this.images = images;
         this.shopping = shopping;
         this.tags = tags;
+        this.ordering = ordering;
     }
 
     @Transactional(readOnly = true) // 只读事务：这个事务预期只读取数据。
@@ -37,7 +39,7 @@ public class MenuService {
 
     public List<DishView> listMenu() {
         // 查询菜单
-        return dishes.findAllByOrderByUpdatedAtDescIdDesc() // 从数据库查询所有菜品，按更新时间和 ID 倒序排列。
+        return ordering.listDishes() // 从数据库查询所有菜品；设置手动顺序后保持该顺序，否则按更新时间和 ID 倒序排列。
         .stream()
         .map(DishView::from) // 将 Dish 实体转换为 DishView 响应对象。
         .toList();
@@ -102,6 +104,7 @@ public class MenuService {
     @Transactional
     public SubmissionView approve(Long id, String note, String reviewer) {
         String cleanNote = clean(note, 1000, "审核备注");
+        ordering.lockForMenuChange();
         Submission submission = pendingSubmission(id);
         if (submission.getAfterSnapshot() != null && submission.getAfterSnapshot().getTags().isEmpty()) {
             submission.getAfterSnapshot().setTags(tags.defaultTags());

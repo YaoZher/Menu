@@ -3,6 +3,7 @@ import { getNoteLines, insertNoteMarker } from './notes.js';
 import { ImageValidationError, prepareUploadImage, validateImageDimensions, extractVideoUrl } from './submission-input.js';
 import { createTagPicker, loadTagCatalog, matchesTagFilters, renderTagChips } from './tags.js';
 import { createDishImage } from './dish-image.js';
+import { createMenuSorter } from './menu-sort.js';
 
 let dishes = [];
 let activeFilter = 'all';
@@ -26,6 +27,7 @@ let activeTagFilters = [];
 let detailDishId = null;
 let detailSequence = 0;
 let renderedDetail = null;
+let sorter = null;
 const cardsById = new Map();
 const addingDishIds = new Set();
 const content = $('#menu-content');
@@ -50,6 +52,18 @@ export function initializeMenu(options) {
       scope: 'menu', key: `${activeFilter}:${selected.map(tag => tag.id).sort().join(',')}`, direction: 1
     } }));
   } });
+  sorter = createMenuSorter({
+    isChef: chefMode,
+    getDishes: () => dishes,
+    setDishes: next => { dishes = next; menuLoaded = true; renderMenu(); },
+    invalidate: () => { menuLoadSequence += 1; },
+    resetFilters: () => {
+      $('#menu-search').value = '';
+      activeTagFilters = []; tagFilter.setSelection([], true); setFilter('all');
+      $('#menu-tag-filter').open = false;
+    },
+    refresh: refreshMenu
+  });
   initialized = true;
   return Promise.all([refreshMenu(), loadTagCatalog()]);
 }
@@ -58,7 +72,7 @@ function updateShoppingButton(button) {
   const id = Number(button.dataset.dishId);
   const selected = isInShopping(id);
   const busy = addingDishIds.has(id);
-  button.disabled = selected || busy;
+  button.disabled = selected || busy || Boolean(sorter?.isActive());
   button.classList.toggle('is-selected', selected);
   button.setAttribute('aria-pressed', String(selected));
   button.setAttribute('aria-busy', String(busy));
@@ -73,7 +87,7 @@ function updateShoppingButtons() {
 }
 
 async function addDishToShopping(dish) {
-  if (!addToShopping || addingDishIds.has(dish.id) || isInShopping(dish.id)) return;
+  if (sorter?.isActive() || !addToShopping || addingDishIds.has(dish.id) || isInShopping(dish.id)) return;
   addingDishIds.add(dish.id);
   updateShoppingButtons();
   try {
@@ -116,10 +130,12 @@ function makeShoppingButton(dish) {
 
 function makeCard(dish) {
   const card = element('article', 'dish-card');
+  card.dataset.dishId = dish.id;
   const link = element('a', 'dish-card-link');
   link.href = `/dish/${dish.id}`;
   link.setAttribute('aria-label', `查看${dish.name}详情`);
   link.addEventListener('click', event => {
+    if (sorter?.isActive()) { event.preventDefault(); return; }
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
     document.dispatchEvent(new CustomEvent('menu:open-dish', { detail: { id: dish.id } }));
@@ -132,6 +148,7 @@ function makeCard(dish) {
   link.append(makeCover(dish), body);
   const actions = element('div', 'card-actions');
   actions.append(makeShoppingButton(dish));
+  if (chefMode) actions.append(sorter.createHandle(dish));
   card.append(link, actions);
   return card;
 }
@@ -237,15 +254,19 @@ function renderMenu() {
   });
   if (grid.parentNode !== content) content.replaceChildren(grid);
   updateShoppingButtons();
+  sorter?.syncCards();
 }
 
+export function updateSortingVisibility(isMenu) { sorter?.setVisible(isMenu); }
+
 export async function refreshMenu() {
+  if (sorter?.isActive()) { renderMenu(); return; }
   const sequence = ++menuLoadSequence;
   // Restore the public menu from its own cache when returning from shopping; keep it visible while refreshing.
   if (menuLoaded) renderMenu(); else loading(content, '');
   try {
     const result = await api('/api/menu');
-    if (sequence !== menuLoadSequence) return;
+    if (sequence !== menuLoadSequence || sorter?.isActive()) return;
     if (!Array.isArray(result)) throw new Error('菜单暂时无法读取，请重试。');
     dishes = result; menuLoaded = true; renderMenu();
     if (detailDishId !== null && !$('#dish-detail-view').hidden) renderDishDetail(dishes.find(dish => dish.id === detailDishId));
@@ -286,6 +307,7 @@ function setImagePreview(url, caption = '') {
 
 export function openDishEditor(dish = null) {
   if (!initialized || dishDialog.dataset.busy) return;
+  if (sorter?.isActive()) { toast('请先保存或撤销排序'); return; }
   editDish = dish;
   imageSequence += 1; readingImage = false; imageValidationError = '';
   dishForm.reset(); releasePreview(); selectedFile = null; imageAction = 'KEEP';

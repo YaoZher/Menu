@@ -15,6 +15,8 @@
   <link rel="stylesheet" href="/assets/motion.css">
   <link rel="stylesheet" href="/assets/ordering.css">
   <link rel="stylesheet" href="/assets/expressive.css">
+  <link rel="stylesheet" href="/assets/menu-sort.css">
+  <link rel="stylesheet" href="/assets/dish-editor.css">
   <script type="module" src="/assets/app.js"></script>
 </head>
 <body class="menu-page">
@@ -34,6 +36,10 @@
   </header>
   <div class="session-status wrap" id="session-status" role="alert" hidden><p id="session-error"></p><button class="button secondary" type="button" id="retry-session">重试</button></div>
   <main class="menu-section wrap app-view" id="menu" aria-label="菜单" tabindex="-1">
+    <div class="menu-sort-actions" id="menu-sort-actions" hidden>
+      <button type="button" class="text-button" id="cancel-menu-sort" hidden>撤销</button>
+      <button type="button" class="button secondary" id="toggle-menu-sort" aria-pressed="false">开启排序</button>
+    </div>
     <div class="menu-toolbar">
       <label class="search-field"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#search"/></svg><input type="search" id="menu-search" placeholder="搜索菜品" aria-label="搜索菜名或备注" maxlength="100"></label>
       <div class="filter-tabs" role="group" aria-label="筛选菜单">
@@ -80,7 +86,8 @@
   <dialog id="dish-dialog" class="dialog dish-dialog" aria-labelledby="dish-dialog-title">
     <form id="dish-form" novalidate>
       <div class="dialog-header"><h2 id="dish-dialog-title">添加菜品</h2><button type="button" class="icon-button" data-close="dish-dialog" aria-label="关闭"><svg class="icon" aria-hidden="true"><use href="/assets/icons.svg#close"/></svg></button></div>
-      <div class="form-stack">
+      <div class="form-stack editor-layout">
+        <div class="editor-fields">
         <div class="field"><label for="dish-name">菜名 <span class="required" aria-hidden="true">*</span></label><input id="dish-name" name="name" maxlength="80" placeholder="菜名" required autocomplete="off"></div>
         <div class="field"><span class="tag-field-label" id="dish-tags-label">标签</span><div class="tag-picker" id="dish-tag-picker" role="group" aria-labelledby="dish-tags-label"></div></div>
         <div class="field">
@@ -89,7 +96,8 @@
           <div class="image-controls" id="image-controls" hidden><span id="image-caption"></span><button type="button" class="text-button danger-text" id="remove-image">移除</button></div>
         </div>
         <div class="field"><label for="dish-video">视频链接</label><textarea id="dish-video" name="videoUrl" rows="2" maxlength="8192" placeholder="粘贴视频链接或分享内容" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea></div>
-        <div class="field"><label for="dish-notes">备注<span class="character-count" id="notes-count">0 / 2000</span></label><div class="note-tools" role="group" aria-label="备注格式"><button class="note-tool" type="button" data-note-marker="•" aria-label="添加材料行" title="材料"><span aria-hidden="true">•</span><small>材料</small></button><button class="note-tool" type="button" data-note-marker="//" aria-label="添加步骤行" title="步骤"><span aria-hidden="true">//</span><small>步骤</small></button></div><textarea id="dish-notes" name="notes" rows="4" maxlength="2000" placeholder="• 西红柿 2 个&#10;// 切块后翻炒"></textarea></div>
+        </div>
+        <div class="field notes-field"><label for="dish-notes">备注<span class="character-count" id="notes-count">0 / 2000</span></label><div class="note-tools" role="group" aria-label="备注格式"><button class="note-tool" type="button" data-note-marker="•" aria-label="添加材料行" title="材料"><span aria-hidden="true">•</span><small>材料</small></button><button class="note-tool" type="button" data-note-marker="//" aria-label="添加步骤行" title="步骤"><span aria-hidden="true">//</span><small>步骤</small></button></div><textarea id="dish-notes" name="notes" rows="10" maxlength="2000" placeholder="• 西红柿 2 个&#10;// 切块后翻炒"></textarea></div>
       </div>
       <p id="dish-error" class="form-error" role="alert" hidden></p>
       <div class="dialog-footer"><button class="button secondary" type="button" data-close="dish-dialog">取消</button><button class="button primary" id="dish-submit" type="submit">提交审核</button></div>

@@ -1,0 +1,15 @@
+.menu-sort-actions { display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-bottom: 18px; }
+.menu-sort-actions .button { min-height: 38px; padding: 8px 16px; font-size: 13px; }
+.sort-controls-disabled { opacity: .46; }
+.is-sorting .dish-card-link { cursor: default; }
+.is-sorting .dish-card { position: relative; }
+.sort-handle { width: 42px; height: 42px; color: var(--green, #39664f); background: rgba(78, 117, 85, .09); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.sort-handle:hover { background: rgba(78, 117, 85, .17); }
+.sort-handle:active { cursor: grabbing; }
+.sort-grip { width: 24px; height: 24px; fill: currentColor; }
+.sort-dragging { opacity: .3; }
+.menu-sort-dragging, .menu-sort-dragging * { cursor: grabbing !important; user-select: none; -webkit-user-select: none; }
+.dish-card.sort-ghost { position: fixed; z-index: 80; pointer-events: none; opacity: .95; margin: 0; border-radius: 16px; background: rgba(249, 250, 244, .97); box-shadow: 0 12px 32px rgba(36, 64, 41, .16); border: 1px solid rgba(78, 117, 85, .14); transition: none; animation: none; }
+.sort-ghost .sort-handle { visibility: visible; }
+@media (max-width: 600px) { .menu-sort-actions { margin-bottom: 12px; } .sort-handle { width: 44px; height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .sort-handle, .sort-controls-disabled { transition: none; } }

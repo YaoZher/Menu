@@ -1,0 +1,9 @@
+.editor-fields { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.notes-field { min-width: 0; }
+#dish-notes { min-height: 250px; line-height: 1.8; resize: vertical; }
+@media (min-width: 900px) {
+  .dialog.dish-dialog { width: min(920px, calc(100% - 64px)); }
+  .dish-dialog .editor-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 28px; align-items: stretch; }
+  .dish-dialog .notes-field { display: flex; flex-direction: column; }
+  .dish-dialog #dish-notes { flex: 1; min-height: 380px; }
+}

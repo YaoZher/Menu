@@ -1,5 +1,5 @@
 import { $, api, writeApi, configureDialogs, toast, authExpired } from './common.js';
-import { initializeMenu, refreshMenu, openDishEditor, showDishDetail } from './menu.js';
+import { initializeMenu, refreshMenu, openDishEditor, showDishDetail, updateSortingVisibility } from './menu.js';
 import { initializeReviews, loadReviews } from './chef.js';
 import { initializeShopping, loadShopping, addToShopping, isInShopping, clearShoppingState } from './shopping.js';
 import { createNavigationMotion } from './navigation-motion.js';
@@ -58,6 +58,7 @@ function showView(name, { historyMode = 'push', refresh = true, focus = true, di
     else link.removeAttribute('aria-current');
   });
   $('#add-dish').hidden = name !== 'menu';
+  updateSortingVisibility(name === 'menu');
   navigationMotion.sync({ animate: changed && focus });
   $('#skip-content').href = `#${next.node.id}`;
   document.title = next.title;
