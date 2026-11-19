@@ -13,6 +13,7 @@ import javax.imageio.ImageReader;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.MemoryCacheImageInputStream;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
+import java.awt.AlphaComposite;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
@@ -65,7 +66,11 @@ public class ImageService {
                 BufferedImage clean = new BufferedImage(width, height,
                         png ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB);
                 Graphics2D graphics = clean.createGraphics();
-                try { graphics.drawImage(source, 0, 0, null); }
+                try {
+                    // Copy PNG colors and alpha without compositing or premultiplication rounding.
+                    if (png) graphics.setComposite(AlphaComposite.Src);
+                    graphics.drawImage(source, 0, 0, null);
+                }
                 finally { graphics.dispose(); source.flush(); }
                 try {
                     ByteArrayOutputStream buffer = new ByteArrayOutputStream();

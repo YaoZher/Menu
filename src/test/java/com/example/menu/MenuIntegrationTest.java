@@ -3,9 +3,14 @@ package com.example.menu;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.awt.image.BufferedImage;
+import java.awt.image.IndexColorModel;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.stream.Stream;
 import javax.imageio.ImageIO;
+import javax.imageio.stream.MemoryCacheImageInputStream;
 import javax.imageio.stream.MemoryCacheImageOutputStream;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -205,6 +210,111 @@ class MenuIntegrationTest {
                 Arguments.of("Screenshot.png", "image/x-png"),
                 Arguments.of("Screenshot.bin", "application/octet-stream"),
                 Arguments.of("Screenshot.jpeg", "image/jpeg"));
+    }
+
+    @ParameterizedTest
+    @MethodSource("transparentPngs")
+    void transparentPngSurvivesGuestReviewAndPublication(String format, BufferedImage source) throws Exception {
+        byte[] uploaded = encodedImage(source, "png");
+        String name = format + "透明访客图-" + System.nanoTime();
+        long id = submit(create(name).file(new MockMultipartFile("image", "dish.png", "image/png", uploaded))
+                .param("imageAction", "REPLACE"));
+        String imageUrl = findSubmission(id).path("after").path("imageUrl").asText();
+        assertThat(findDish(name)).isNull();
+        mvc.perform(get(imageUrl)).andExpect(status().isNotFound());
+        byte[] pending = mvc.perform(get(imageUrl).with(chef())).andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_PNG)).andReturn().getResponse().getContentAsByteArray();
+        assertTransparentPixels(pending, source, uploaded);
+        approve(id, 200);
+        assertThat(findDish(name).path("imageUrl").asText()).isEqualTo(imageUrl);
+        byte[] published = mvc.perform(get(imageUrl)).andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_PNG)).andReturn().getResponse().getContentAsByteArray();
+        assertThat(published).isEqualTo(pending);
+        assertTransparentPixels(published, source, uploaded);
+    }
+
+    @ParameterizedTest
+    @MethodSource("transparentPngs")
+    void transparentPngSurvivesDirectChefPublication(String format, BufferedImage source) throws Exception {
+        byte[] uploaded = encodedImage(source, "png");
+        String name = format + "透明大厨图-" + System.nanoTime();
+        mvc.perform(multipart("/api/chef/dishes")
+                .file(new MockMultipartFile("image", "dish.png", "image/png", uploaded))
+                .param("operation", "CREATE").param("name", name).param("imageAction", "REPLACE").with(chef()).with(csrf()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("APPROVED"));
+        byte[] published = mvc.perform(get(findDish(name).path("imageUrl").asText())).andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_PNG)).andReturn().getResponse().getContentAsByteArray();
+        assertTransparentPixels(published, source, uploaded);
+    }
+
+    @Test void jpegStillPublishesAsOpaqueJpeg() throws Exception {
+        BufferedImage source = new BufferedImage(3, 2, BufferedImage.TYPE_INT_RGB);
+        source.setRGB(1, 1, 0xffc66b35);
+        String name = "JPEG兼容-" + System.nanoTime();
+        mvc.perform(multipart("/api/chef/dishes")
+                .file(new MockMultipartFile("image", "dish.jpg", "image/jpeg", encodedImage(source, "jpeg")))
+                .param("operation", "CREATE").param("name", name).param("imageAction", "REPLACE").with(chef()).with(csrf()))
+                .andExpect(status().isOk());
+        byte[] published = mvc.perform(get(findDish(name).path("imageUrl").asText())).andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_JPEG)).andReturn().getResponse().getContentAsByteArray();
+        BufferedImage restored = decodedImage(published);
+        assertThat(restored.getColorModel().hasAlpha()).isFalse();
+        assertThat(restored.getWidth()).isEqualTo(source.getWidth());
+        assertThat(restored.getHeight()).isEqualTo(source.getHeight());
+    }
+
+    static Stream<Arguments> transparentPngs() {
+        int[] pixels = { 0x00123456, 0x01c76335, 0x40835629, 0x7f3d95c7,
+                0x80c76b35, 0xfe7189ab, 0xffe47a29, 0xff123456 };
+        BufferedImage rgba = new BufferedImage(4, 2, BufferedImage.TYPE_INT_ARGB);
+        rgba.setRGB(0, 0, 4, 2, pixels, 0, 4);
+        byte[] red = new byte[pixels.length], green = new byte[pixels.length];
+        byte[] blue = new byte[pixels.length], alpha = new byte[pixels.length];
+        for (int i = 0; i < pixels.length; i++) {
+            red[i] = (byte) (pixels[i] >>> 16);
+            green[i] = (byte) (pixels[i] >>> 8);
+            blue[i] = (byte) pixels[i];
+            alpha[i] = (byte) (pixels[i] >>> 24);
+        }
+        BufferedImage indexed = new BufferedImage(4, 2, BufferedImage.TYPE_BYTE_INDEXED,
+                new IndexColorModel(8, pixels.length, red, green, blue, alpha));
+        for (int i = 0; i < pixels.length; i++) indexed.getRaster().setSample(i % 4, i / 4, 0, i);
+        return Stream.of(Arguments.of("RGBA", rgba), Arguments.of("indexed-tRNS", indexed));
+    }
+
+    private static byte[] encodedImage(BufferedImage source, String format) throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (var output = new MemoryCacheImageOutputStream(bytes)) {
+            assertThat(ImageIO.write(source, format, output)).isTrue();
+            output.flush();
+        }
+        // Re-encoding must discard trailing upload data while retaining the actual pixels.
+        bytes.write("untrusted trailing upload data".getBytes(StandardCharsets.US_ASCII));
+        return bytes.toByteArray();
+    }
+
+    private static BufferedImage decodedImage(byte[] bytes) throws Exception {
+        try (var input = new MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {
+            var reader = ImageIO.getImageReaders(input).next();
+            try {
+                reader.setInput(input);
+                return reader.read(0);
+            } finally { reader.dispose(); }
+        }
+    }
+
+    private static void assertTransparentPixels(byte[] stored, BufferedImage source, byte[] uploaded) throws Exception {
+        assertThat(Arrays.equals(stored, uploaded)).isFalse();
+        BufferedImage restored = decodedImage(stored);
+        assertThat(restored).isNotNull();
+        assertThat(restored.getColorModel().hasAlpha()).isTrue();
+        assertThat(restored.getWidth()).isEqualTo(source.getWidth());
+        assertThat(restored.getHeight()).isEqualTo(source.getHeight());
+        for (int y = 0; y < source.getHeight(); y++) {
+            for (int x = 0; x < source.getWidth(); x++) {
+                assertThat(restored.getRGB(x, y)).as("ARGB pixel (%s, %s)", x, y).isEqualTo(source.getRGB(x, y));
+            }
+        }
     }
 
     @Test void pastedSharingTextAndMobilePngSurviveSubmissionReviewAndPublication() throws Exception {

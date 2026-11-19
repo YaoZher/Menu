@@ -37,6 +37,9 @@
 .dish-card-link:focus-visible { outline: 2px solid var(--green); outline-offset: 5px; }
 .menu-page .dish-cover { width: 92px; height: 92px; grid-row: auto; border-radius: 9px; background: #e6ebdfb3; }
 .menu-page .dish-cover .bowl-icon { width: 38px; height: 38px; opacity: .65; }
+/* Let PNG transparency reveal the page; keep the tinted fallback for missing images. */
+.menu-page .dish-cover:has(> .dish-image), .menu-page .dish-detail-cover:has(> .dish-image) { background: transparent; }
+.menu-page .snapshot-image { background: transparent; }
 .menu-page .dish-body { min-width: 0; padding: 0; }
 .menu-page .dish-body h3 { font-size: 17px; line-height: 1.5; font-weight: 600; transition: color 160ms ease; }
 .menu-page .dish-body .dish-tags { gap: 2px 8px; margin-top: 6px; }

@@ -1,5 +1,6 @@
 .editor-fields { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
 .notes-field { min-width: 0; }
+.field > .upload-zone:has(#image-preview:not([hidden])) { background: transparent; }
 #dish-notes { min-height: 250px; line-height: 1.8; resize: vertical; }
 @media (min-width: 900px) {
   .dialog.dish-dialog { width: min(920px, calc(100% - 64px)); }
