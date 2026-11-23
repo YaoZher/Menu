@@ -24,6 +24,8 @@
 
 双击桌面 Work 中的 **启动菜单网站.cmd** / **停止菜单网站.cmd**，或运行项目中的 `start-menu.cmd` / `stop-menu.cmd`。
 
+一键启动会等本地服务就绪后打开 `http://127.0.0.1:34455/`。加 `-NoBrowser` 可仅启动服务。
+
 首次设置密码后由 Windows 加密保存。也可通过 `MENU_CHEF_PASSWORD` 配置密码。重设密码：`powershell -ExecutionPolicy Bypass -File .\start-desktop.ps1 -ResetPassword`。
 
 ## 备菜备注

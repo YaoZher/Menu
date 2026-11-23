@@ -2,7 +2,6 @@
 
 $ErrorActionPreference = 'Stop'
 $menuUrl = 'http://127.0.0.1:34455/'
-$menuPublicUrl = 'https://menu.yaozher.com/'
 $menuJar = Join-Path $PSScriptRoot 'target\menu-1.0.0.jar'
 $menuFrontendScript = Join-Path $PSScriptRoot 'frontend-server.mjs'
 $menuPasswordFile = Join-Path $env:LOCALAPPDATA 'YaoZherMenu\chef-password.dpapi'
@@ -28,8 +27,8 @@ try {
         if ($menuFrontendRunning.Count -eq 0) { throw '后端已运行但前端入口未运行，请先停止旧启动窗口再重新启动。' }
         $menuResponse = Invoke-WebRequest -Uri ($menuUrl + 'api/menu') -UseBasicParsing -TimeoutSec 5
         if ($menuResponse.StatusCode -ne 200 -or $menuResponse.Headers['Content-Type'] -notlike 'application/json*') { throw '检测到项目进程，但网站尚未就绪，请稍后重试。' }
-        Write-Host ('菜单网站已在运行：' + $menuPublicUrl)
-        if (-not $NoBrowser) { Start-Process -FilePath $menuPublicUrl }
+        Write-Host ('本地菜单已在运行：' + $menuUrl)
+        if (-not $NoBrowser) { Start-Process -FilePath $menuUrl }
         exit 0
     }
     foreach ($menuPortToCheck in @(12233, 34455)) {
@@ -88,19 +87,18 @@ try {
     $env:PORT = '12233'
     $env:FRONTEND_PORT = '34455'
     $menuUsername = if ($env:MENU_CHEF_USERNAME) { $env:MENU_CHEF_USERNAME } else { 'chef' }
-    Write-Host ('菜单：' + $menuPublicUrl)
-    Write-Host ('审核：' + $menuPublicUrl + 'chef  账号：' + $menuUsername)
+    Write-Host ('本地审核：' + $menuUrl + 'chef  账号：' + $menuUsername)
     Write-Host ('本地前端：' + $menuUrl + '  后端：http://127.0.0.1:12233/')
     Write-Host '启动后请保留此窗口；按 Ctrl+C 停止网站。'
 
     if (-not $NoBrowser) {
-        $menuBrowserJob = Start-Job -ArgumentList $menuUrl, $menuPublicUrl -ScriptBlock {
-            param($Url, $PublicUrl)
+        $menuBrowserJob = Start-Job -ArgumentList $menuUrl -ScriptBlock {
+            param($Url)
             for ($menuAttempt = 0; $menuAttempt -lt 90; $menuAttempt++) {
                 try {
                     $menuResponse = Invoke-WebRequest -Uri ($Url + 'api/menu') -UseBasicParsing -TimeoutSec 2
                     if ($menuResponse.StatusCode -eq 200 -and $menuResponse.Headers['Content-Type'] -like 'application/json*') {
-                        Start-Process -FilePath $PublicUrl
+                        Start-Process -FilePath $Url
                         return
                     }
                 } catch { }

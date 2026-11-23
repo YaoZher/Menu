@@ -29,8 +29,7 @@ try {
     $menuFrontendPort = if ($env:FRONTEND_PORT) { $env:FRONTEND_PORT } else { '34455' }
     Write-Host ('Backend: http://127.0.0.1:' + $menuPort)
     Write-Host ('Menu: http://127.0.0.1:' + $menuFrontendPort)
-    Write-Host 'Public menu: https://menu.yaozher.com/'
-    Write-Host 'Review: https://menu.yaozher.com/chef'
+    Write-Host ('Review: http://127.0.0.1:' + $menuFrontendPort + '/chef')
     $runtimeTmp = Join-Path $PSScriptRoot 'data\tmp'
     New-Item -ItemType Directory -Path $runtimeTmp -Force | Out-Null
     & node (Join-Path $PSScriptRoot 'frontend-server.mjs') --jar $jar --tmp $runtimeTmp

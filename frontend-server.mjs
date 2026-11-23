@@ -124,7 +124,6 @@ function run() {
   server.on('error', error => { console.error(`Frontend failed: ${error.message}`); stop(1); });
   server.listen(frontendPort, '127.0.0.1', () => {
     console.log(`Frontend: http://127.0.0.1:${frontendPort}/`);
-    console.log(`Public URL: https://menu.yaozher.com/`);
     if (!options.jar) return;
     child = spawn('java', [
       '-Xms64m', '-Xmx384m', `-Djava.io.tmpdir=${options.tmp}`, `-Djdk.net.unixdomain.tmpdir=${options.tmp}`,
