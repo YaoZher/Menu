@@ -1,4 +1,4 @@
-import { $, element, icon, api, writeApi, safeVideoUrl, toast, loading, emptyState, authExpired } from './common.js';
+import { $, element, icon, api, writeApi, safeVideoUrl, toast, loading, emptyState, setButtonPending, authExpired } from './common.js';
 import { getNoteLines, renderNoteContent } from './notes.js';
 import { OptimisticCheckQueue } from './optimistic-checks.js';
 
@@ -7,6 +7,7 @@ let initialized = false;
 let ready = false;
 let loadingPromise = null;
 let refreshRequested = false;
+let refreshVisible = false;
 let revision = 0;
 let sessionEpoch = 0;
 let onEditDish = () => {};
@@ -30,7 +31,7 @@ export function initializeShopping(options = {}) {
   onChanged = options.onChanged || onChanged;
   if (initialized) return;
   initialized = true;
-  $('#refresh-shopping').addEventListener('click', () => loadShopping());
+  $('#refresh-shopping').addEventListener('click', () => loadShopping({ interactive: true }));
 }
 
 export function isInShopping(dishId) {
@@ -44,6 +45,7 @@ export function clearShoppingState() {
   busy.clear(); adding.clear(); checkQueues.clear(); checkDrains.clear(); expanded.clear();
   loadingPromise = null;
   refreshRequested = false;
+  setShoppingRefreshVisible(false);
   $('#shopping-content').replaceChildren();
   changed();
 }
@@ -53,21 +55,26 @@ function updateEntry(updated) {
   if (index < 0) entries.push(updated); else entries[index] = updated;
 }
 
-export async function loadShopping() {
+function setShoppingRefreshVisible(visible) {
+  refreshVisible = visible;
+  const content = $('#shopping-content');
+  content.toggleAttribute('data-page-loading', visible && ready);
+  content.setAttribute('aria-busy', String(visible || (!ready && Boolean(loadingPromise))));
+  setButtonPending($('#refresh-shopping'), visible);
+}
+
+export async function loadShopping({ interactive = false } = {}) {
+  if (interactive && !refreshVisible) setShoppingRefreshVisible(true);
   if (busy.size || adding.size || checkQueues.size) {
     refreshRequested = true;
     return entries;
   }
-  if (loadingPromise) {
-    refreshRequested = true;
-    return loadingPromise;
-  }
+  if (loadingPromise) return loadingPromise;
   refreshRequested = false;
   const version = revision;
   const epoch = sessionEpoch;
   const content = $('#shopping-content');
-  if (!ready) loading(content, '');
-  $('#refresh-shopping').disabled = true;
+  if (!ready) loading(content, '加载中…');
   const request = (async () => {
     try {
       const data = await api('/api/shopping');
@@ -82,14 +89,13 @@ export async function loadShopping() {
       if (epoch !== sessionEpoch) return entries;
       if (version !== revision) { refreshRequested = true; return entries; }
       if (chefMode && authExpired(error)) { refreshRequested = false; return entries; }
-      content.setAttribute('aria-busy', 'false');
-      if (ready) toast('刷新失败', error.message);
-      else content.replaceChildren(emptyState({ title: '加载失败', message: error.message, actionText: '重试', action: loadShopping, symbol: 'refresh' }));
+      if (!ready) content.replaceChildren(emptyState({ title: '加载失败', message: error.message, actionText: '重试', action: () => loadShopping({ interactive: true }), symbol: 'refresh' }));
+      else if (refreshVisible) toast('刷新失败', error.message);
     } finally {
       if (loadingPromise === request) {
         loadingPromise = null;
-        $('#refresh-shopping').disabled = false;
-        flushShoppingRefresh(epoch);
+        if (refreshRequested) flushShoppingRefresh(epoch);
+        else setShoppingRefreshVisible(false);
       }
     }
     return entries;
@@ -149,10 +155,11 @@ function shoppingCard(entry) {
   title.id = `shopping-dish-${entry.id}`;
   card.setAttribute('aria-labelledby', title.id);
   const actions = element('div', 'shopping-card-actions');
-  if (chefMode) actions.append(
-    iconButton('edit', `修改${entry.dish.name}的原料与做法`, () => onEditDish(entry.dish)),
-    iconButton('close', `将${entry.dish.name}移出待采购`, () => removeEntry(entry))
-  );
+  if (chefMode) {
+    const remove = iconButton('close', `将${entry.dish.name}移出待采购`, () => removeEntry(entry));
+    if (card.entryBusy) setButtonPending(remove, true);
+    actions.append(iconButton('edit', `修改${entry.dish.name}的原料与做法`, () => onEditDish(entry.dish)), remove);
+  }
   heading.append(title, actions); card.append(heading);
   const checked = item => checkQueues.get(entry.id)?.value(item.id) ?? item.checked;
   if (entry.ingredients.length) {
@@ -202,7 +209,10 @@ function shoppingCard(entry) {
     details.addEventListener('toggle', () => { if (details.open) expanded.add(entry.id); else expanded.delete(entry.id); });
     card.append(details);
   }
-  if (busy.has(entry.id)) card.querySelectorAll('button, input').forEach(control => { control.disabled = true; });
+  if (card.entryBusy) {
+    card.setAttribute('aria-busy', 'true');
+    card.querySelectorAll('button, input').forEach(control => { control.disabled = true; });
+  }
   return card;
 }
 
@@ -226,7 +236,7 @@ function refreshCard(entry, focusId) {
       if (input.checked) checkedCount += 1;
     });
     card.querySelectorAll('button').forEach(button => { button.disabled = disabled; });
-    card.setAttribute('aria-busy', String(disabled));
+    card.setAttribute('aria-busy', String(card.entryBusy));
     const progress = card.querySelector('.shopping-progress');
     if (progress) {
       progress.textContent = `${checkedCount} / ${entry.ingredients.length}`;
@@ -244,7 +254,8 @@ function renderShopping(focusId) {
   const content = $('#shopping-content');
   const active = document.activeElement;
   const activeIngredient = content.contains(active) && active.matches('input[type="checkbox"]') ? active.id : null;
-  content.setAttribute('aria-busy', 'false');
+  content.setAttribute('aria-busy', String(refreshVisible));
+  content.toggleAttribute('data-page-loading', refreshVisible && ready);
   if (!entries.length) {
     content.replaceChildren(emptyState({ title: '暂无待采购', actionText: '选菜', action: () => {
       const menuLink = document.querySelector('nav a[href="/"]');
@@ -288,6 +299,7 @@ function setChecked(entry, ingredient, checked) {
 function rollbackChecksBeforeLogin(error) {
   sessionEpoch += 1; revision += 1;
   refreshRequested = false;
+  setShoppingRefreshVisible(false);
   checkQueues.clear(); checkDrains.clear();
   entries.forEach(entry => refreshCard(entry));
   authExpired(error);

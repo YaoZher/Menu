@@ -1,5 +1,35 @@
 /* Short, local feedback; page contents and action buttons stay visible. */
 :root { --motion-ease: cubic-bezier(.22, 1, .36, 1); }
+button[data-button-pending]:disabled { opacity: .84; cursor: progress; }
+button[data-button-pending]::before {
+  content: '';
+  display: inline-block;
+  flex: none;
+  width: 1em;
+  height: 1em;
+  box-sizing: border-box;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+  animation: spin .75s linear infinite;
+}
+button[data-button-pending="icon"] { position: relative; }
+button[data-button-pending="icon"] > * { visibility: hidden; }
+button[data-button-pending="icon"]::before { position: absolute; inset: 0; margin: auto; }
+
+[data-page-loading] { position: relative; }
+[data-page-loading]::before {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  inset: -4px 0 auto;
+  height: 3px;
+  border-radius: 999px;
+  pointer-events: none;
+  background: linear-gradient(90deg, #52775e30, #52775e30), linear-gradient(90deg, transparent, #52775e, transparent) 0 0 / 35% 100% no-repeat;
+  animation: page-loading 1.25s ease-in-out infinite alternate;
+}
+@keyframes page-loading { to { background-position: 0 0, 100% 0; } }
 .icon-button, .add-button, .button, .text-button, .filter-button, .tag-option, .tag-category, button.tag-chip, .note-tool {
   transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms var(--motion-ease);
 }

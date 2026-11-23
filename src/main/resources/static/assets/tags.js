@@ -1,4 +1,4 @@
-import { element, api, writeApi, showError, authExpired } from './common.js';
+import { element, api, writeApi, showError, setButtonPending, authExpired } from './common.js';
 
 let catalog = [];
 let catalogReady = false;
@@ -196,6 +196,8 @@ export function createTagPicker(root, { mode = 'editor', isChef = false, onChang
     if ([...managerCategory.options].some(option => option.value === current)) managerCategory.value = current;
     newCategory.hidden = managerCategory.value !== 'new';
     manager.querySelectorAll('input, select, button').forEach(control => { control.disabled = controlsDisabled(); });
+    setButtonPending(createButton, creating, '添加中…');
+    createButton.disabled = controlsDisabled();
   }
   if (!filter && isChef) {
     manager = element('details', 'tag-manager');

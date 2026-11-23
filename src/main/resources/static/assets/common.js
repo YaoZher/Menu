@@ -97,10 +97,29 @@ export function toast(title, detail = '', duration = 11000) {
   if (duration) timer = window.setTimeout(dismiss, duration);
 }
 export function showError(node, message) { node.textContent = message || ''; node.hidden = !message; }
+const pendingButtons = new WeakMap();
+export function setButtonPending(button, pending, label = '') {
+  const previous = pendingButtons.get(button);
+  if (pending) {
+    if (!previous) pendingButtons.set(button, { children: label ? [...button.childNodes] : null });
+    if (label && button.textContent !== label) button.textContent = label;
+    button.disabled = true;
+    button.dataset.buttonPending = label ? 'label' : 'icon';
+    button.setAttribute('aria-busy', 'true');
+  } else if (previous) {
+    if (previous.children) button.replaceChildren(...previous.children);
+    button.disabled = false;
+    delete button.dataset.buttonPending;
+    button.removeAttribute('aria-busy');
+    pendingButtons.delete(button);
+  }
+}
 export function loading(container, message) {
   container.setAttribute('aria-busy', 'true');
   const node = element('div', 'loading-state');
-  node.append(element('span', 'spinner'), element('p', '', message));
+  const spinner = element('span', 'spinner');
+  spinner.setAttribute('aria-hidden', 'true');
+  node.append(spinner, element('p', message ? '' : 'visually-hidden', message || '加载中'));
   container.replaceChildren(node);
 }
 export function emptyState({ title, message, action, actionText, symbol = 'bowl', index }) {

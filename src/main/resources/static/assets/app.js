@@ -1,4 +1,4 @@
-import { $, api, writeApi, configureDialogs, toast, authExpired } from './common.js';
+import { $, api, writeApi, configureDialogs, toast, authExpired, setButtonPending } from './common.js';
 import { initializeMenu, refreshMenu, openDishEditor, showDishDetail, updateSortingVisibility } from './menu.js';
 import { initializeReviews, loadReviews } from './chef.js';
 import { initializeShopping, loadShopping, addToShopping, isInShopping, clearShoppingState } from './shopping.js';
@@ -28,7 +28,6 @@ let sessionReady = false;
 let authenticated = false;
 let initializing = false;
 let initialized = false;
-let navigationRevision = 0;
 
 function viewFromPath() {
   if (/^\/dish\/\d+\/?$/u.test(location.pathname)) return 'detail';
@@ -41,7 +40,6 @@ function showView(name, { historyMode = 'push', refresh = true, focus = true, di
   if (!sessionReady) return;
   if (name === 'review' && !authenticated) { location.assign('/chef/login'); return; }
   const next = views[name];
-  navigationRevision += 1;
   const selectedDishId = dishId ?? Number(location.pathname.match(/^\/dish\/(\d+)/u)?.[1]);
   const path = name === 'detail' ? `/dish/${selectedDishId}` : next.path;
   const changed = activeView !== name;
@@ -74,7 +72,7 @@ function showView(name, { historyMode = 'push', refresh = true, focus = true, di
   if (refresh) {
     if (name === 'menu') { void refreshMenu(); void loadShopping(); }
     else if (name === 'detail') void loadShopping();
-    else if (name === 'shopping') void loadShopping();
+    else if (name === 'shopping') void loadShopping({ interactive: true });
     else if (name === 'review') void loadReviews();
   }
 }
@@ -82,7 +80,8 @@ function showView(name, { historyMode = 'push', refresh = true, focus = true, di
 async function initializeApp() {
   if (initializing) return;
   initializing = true;
-  $('#retry-session').disabled = true;
+  const retry = $('#retry-session');
+  if (!$('#session-status').hidden) setButtonPending(retry, true, '重试中…');
   let session;
   try {
     session = await api('/api/session');
@@ -92,7 +91,7 @@ async function initializeApp() {
     $('#session-status').hidden = false;
     Object.values(views).forEach(view => { view.node.hidden = true; });
     $('#add-dish').disabled = true;
-    $('#retry-session').disabled = false;
+    setButtonPending(retry, false);
     initializing = false;
     return;
   }
@@ -112,16 +111,14 @@ async function initializeApp() {
     initializeReviews();
     initializeShopping({ isChef: authenticated, onEditDish: openDishEditor });
     const initialView = viewFromPath();
-    const initialRevision = navigationRevision;
-    await Promise.all([
-      initializeMenu({ isChef: authenticated, addToShopping, isInShopping }),
-      loadShopping(),
-      authenticated && initialView === 'review' ? loadReviews() : Promise.resolve()
-    ]);
-    if (navigationRevision === initialRevision) showView(initialView, { historyMode: 'replace', refresh: false, focus: false });
+    // Show the requested page and its own loading state without waiting for other pages.
+    void initializeMenu({ isChef: authenticated, addToShopping, isInShopping });
+    void loadShopping({ interactive: initialView === 'shopping' });
+    if (authenticated && initialView === 'review') void loadReviews();
+    showView(initialView, { historyMode: 'replace', refresh: false, focus: false });
   }
   initializing = false;
-  $('#retry-session').disabled = false;
+  setButtonPending(retry, false);
 }
 
 document.querySelectorAll('a[data-view]').forEach(link => link.addEventListener('click', event => {
@@ -156,7 +153,7 @@ document.addEventListener('visibilitychange', () => {
 $('#logout').addEventListener('click', async () => {
   const button = $('#logout');
   if (button.disabled) return;
-  button.disabled = true;
+  setButtonPending(button, true, '退出中…');
   try {
     await writeApi('/api/chef/logout');
     clearShoppingState();
@@ -164,7 +161,7 @@ $('#logout').addEventListener('click', async () => {
     location.assign('/');
   } catch (error) {
     if (!authExpired(error)) toast('退出失败', error.message);
-    button.disabled = false;
+    setButtonPending(button, false);
   }
 });
 

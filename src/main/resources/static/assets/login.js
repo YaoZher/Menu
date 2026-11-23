@@ -1,4 +1,4 @@
-import { $, writeApi, showError } from './common.js';
+import { $, writeApi, showError, setButtonPending } from './common.js';
 
 const form = $('#login-form');
 const submit = $('#login-submit');
@@ -22,7 +22,7 @@ form.addEventListener('submit', async event => {
   const body = new URLSearchParams({ username, password: $('#password').value });
   submitting = true;
   form.querySelectorAll('button, input').forEach(control => { control.disabled = true; });
-  submit.textContent = '登录中…';
+  setButtonPending(submit, true, '登录中…');
   try {
     await writeApi('/api/chef/login', { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
     location.assign('/');
@@ -31,7 +31,7 @@ form.addEventListener('submit', async event => {
     $('#password').value = '';
     submitting = false;
     form.querySelectorAll('button, input').forEach(control => { control.disabled = false; });
-    submit.textContent = '登录';
+    setButtonPending(submit, false);
     $('#password').focus();
   }
 });

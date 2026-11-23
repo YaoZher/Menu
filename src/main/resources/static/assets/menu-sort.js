@@ -1,4 +1,4 @@
-import { $, element, api, writeApi, toast } from './common.js';
+import { $, element, api, writeApi, toast, setButtonPending } from './common.js';
 
 const sameOrder = (left, right) => left.length === right.length && left.every((id, index) => id === right[index]);
 
@@ -44,10 +44,13 @@ export function createMenuSorter({ isChef, getDishes, setDishes, invalidate, res
 
   function syncControls() {
     actions.hidden = !isChef || !visible;
-    toggle.textContent = mode === 'loading' ? '读取中…' : mode === 'saving' ? '保存中…' : active() ? '保存' : '开启排序';
-    toggle.disabled = mode === 'loading' || mode === 'saving';
+    if (mode === 'loading' || mode === 'saving') {
+      setButtonPending(toggle, true, mode === 'loading' ? '读取中…' : '保存中…');
+    } else {
+      setButtonPending(toggle, false);
+      toggle.textContent = active() ? '保存' : '开启排序';
+    }
     toggle.setAttribute('aria-pressed', String(active()));
-    toggle.setAttribute('aria-busy', String(mode === 'loading' || mode === 'saving'));
     cancel.hidden = !active(); cancel.disabled = !editing();
     toolbar.inert = active(); tags.inert = active();
     toolbar.classList.toggle('sort-controls-disabled', active());
