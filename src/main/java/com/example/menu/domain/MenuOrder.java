@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /** A separate ordering record keeps presentation changes out of dish review versions. */
-@Entity
+@Entity // 菜单订单实体
 @Table(name = "menu_orders")
 public class MenuOrder {
     public static final long SINGLETON_ID = 1L;
