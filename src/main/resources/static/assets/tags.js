@@ -1,4 +1,5 @@
 import { element, api, writeApi, showError, setButtonPending, authExpired } from './common.js';
+import { captureBackground, signalBackground } from './background-motion.js';
 
 let catalog = [];
 let catalogReady = false;
@@ -113,6 +114,7 @@ export function createTagPicker(root, { mode = 'editor', isChef = false, onChang
       if (!filter && !remove && !has && String(tag.id) === String(fallback()?.id)) next = [tag];
       selected = filter ? next : normalizeTagSelection(next, fallback());
       showError(error, ''); refresh(); publish();
+      if (!filter) signalBackground('tag-edit');
     } catch (failure) { showError(error, failure.message); }
   }
   search.addEventListener('input', () => { query = search.value.trim().toLocaleLowerCase('zh-CN'); renderChoices(); });
@@ -215,6 +217,8 @@ export function createTagPicker(root, { mode = 'editor', isChef = false, onChang
       if (name.length > 30 || categoryName.length > 30) { showError(error, '名称不能超过 30 个字符。'); return; }
       if (selected.filter(tag => tag.id !== fallback()?.id).length >= 12) { showError(error, '最多选择 12 个标签。'); return; }
       const currentContext = context;
+      const motion = captureBackground();
+      const dialog = root.closest('dialog');
       creating = true; refresh(); showError(error, '');
       try {
         let categoryId = managerCategory.value;
@@ -229,8 +233,14 @@ export function createTagPicker(root, { mode = 'editor', isChef = false, onChang
         if (currentContext === context) {
           selected = normalizeTagSelection([...selected, tag], fallback());
           tagName.value = ''; newCategory.value = ''; manager.open = false; publish();
+          if (!dialog || dialog.open) motion('tag-create');
         }
-      } catch (failure) { if (!authExpired(failure) && currentContext === context) showError(error, failure.message); }
+      } catch (failure) {
+        if (!authExpired(failure) && currentContext === context) {
+          showError(error, failure.message);
+          if (!dialog || dialog.open) motion('error');
+        }
+      }
       finally { creating = false; refresh(); }
     });
     fields.append(managerCategory, newCategory, tagName, createButton); manager.append(fields); root.append(manager);

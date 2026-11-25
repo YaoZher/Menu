@@ -4,6 +4,7 @@ import { ImageValidationError, prepareUploadImage, validateImageDimensions, extr
 import { createTagPicker, loadTagCatalog, matchesTagFilters, renderTagChips } from './tags.js';
 import { createDishImage } from './dish-image.js';
 import { createMenuSorter } from './menu-sort.js';
+import { captureBackground, signalBackground } from './background-motion.js';
 
 let dishes = [];
 let activeFilter = 'all';
@@ -29,6 +30,7 @@ let detailDishId = null;
 let detailSequence = 0;
 let renderedDetail = null;
 let sorter = null;
+let searchMotionTimer;
 const cardsById = new Map();
 const addingDishIds = new Set();
 const content = $('#menu-content');
@@ -36,6 +38,22 @@ const dishDialog = $('#dish-dialog');
 const deleteDialog = $('#delete-dialog');
 const dishForm = $('#dish-form');
 const dishError = $('#dish-error');
+const menuSearch = $('#menu-search');
+
+function currentFilterKey() {
+  return activeTagFilters.length ? `${activeFilter}:${activeTagFilters.map(tag => tag.id).sort().join(',')}` : activeFilter;
+}
+
+function setTagFilters(selected, animate = true) {
+  activeTagFilters = selected;
+  $('#tag-filter-count').textContent = selected.length ? `${selected.length} 项` : '全部';
+  $('#menu-tag-filter-summary').title = selected.map(tag => tag.name).join('、');
+  $('#clear-tag-filter').disabled = selected.length === 0;
+  renderMenu();
+  document.dispatchEvent(new CustomEvent('menu:filter-changed', { detail: {
+    scope: 'menu', mode: 'tags', key: currentFilterKey(), direction: 1, animate
+  } }));
+}
 
 export function initializeMenu(options) {
   if (initialized) return Promise.resolve();
@@ -43,16 +61,7 @@ export function initializeMenu(options) {
   addToShopping = options.addToShopping;
   isInShopping = options.isInShopping || (() => false);
   tagEditor = createTagPicker($('#dish-tag-picker'), { isChef: chefMode });
-  tagFilter = createTagPicker($('#menu-tag-picker'), { mode: 'filter', onChange: selected => {
-    activeTagFilters = selected;
-    $('#tag-filter-count').textContent = selected.length ? `${selected.length} 项` : '全部';
-    $('#menu-tag-filter-summary').title = selected.map(tag => tag.name).join('、');
-    $('#clear-tag-filter').disabled = selected.length === 0;
-    renderMenu();
-    document.dispatchEvent(new CustomEvent('menu:filter-changed', { detail: {
-      scope: 'menu', key: `${activeFilter}:${selected.map(tag => tag.id).sort().join(',')}`, direction: 1
-    } }));
-  } });
+  tagFilter = createTagPicker($('#menu-tag-picker'), { mode: 'filter', onChange: setTagFilters });
   sorter = createMenuSorter({
     isChef: chefMode,
     getDishes: () => dishes,
@@ -63,8 +72,10 @@ export function initializeMenu(options) {
       content.removeAttribute('data-page-loading');
     },
     resetFilters: () => {
-      $('#menu-search').value = '';
-      activeTagFilters = []; tagFilter.setSelection([], true); setFilter('all');
+      menuSearch.value = '';
+      tagFilter.setSelection([]);
+      setTagFilters([], false);
+      setFilter('all', false);
       $('#menu-tag-filter').open = false;
     },
     refresh: () => refreshMenu({ afterWrite: true })
@@ -96,11 +107,14 @@ async function addDishToShopping(dish) {
   if (sorter?.isActive() || !addToShopping || addingDishIds.has(dish.id) || isInShopping(dish.id)) return;
   addingDishIds.add(dish.id);
   updateShoppingButtons();
+  const motion = captureBackground();
+  motion('shopping-add');
   try {
     await addToShopping(dish);
     toast('已加入待采购', dish.name, 3500);
   } catch (error) {
     toast('添加失败', error.message);
+    motion('error');
   } finally {
     addingDishIds.delete(dish.id);
     updateShoppingButtons();
@@ -227,7 +241,7 @@ function renderMenu() {
   if (!menuLoaded) return;
   content.setAttribute('aria-busy', 'false');
   $('#menu-count').textContent = String(dishes.length);
-  const query = $('#menu-search').value.trim().toLocaleLowerCase('zh-CN');
+  const query = menuSearch.value.trim().toLocaleLowerCase('zh-CN');
   const visible = dishes.filter(dish => (!query || `${dish.name} ${dish.notes || ''}`.toLocaleLowerCase('zh-CN').includes(query))
     && (activeFilter === 'all' || dish.tags?.some(tag => tag.name === activeFilter && tag.categoryName === '菜品类型'))
     && matchesTagFilters(dish.tags, activeTagFilters));
@@ -294,7 +308,7 @@ export function refreshMenu({ afterWrite = false } = {}) {
   return menuRequest;
 }
 
-function setFilter(filter) {
+function setFilter(filter, animate = true) {
   if (activeFilter === filter) return;
   const options = [...document.querySelectorAll('[data-filter]')].map(button => button.dataset.filter);
   const direction = Math.sign(options.indexOf(filter) - options.indexOf(activeFilter)) || 1;
@@ -304,7 +318,7 @@ function setFilter(filter) {
     button.classList.toggle('active', selected); button.setAttribute('aria-pressed', String(selected));
   });
   renderMenu();
-  document.dispatchEvent(new CustomEvent('menu:filter-changed', { detail: { scope: 'menu', key: filter, direction } }));
+  document.dispatchEvent(new CustomEvent('menu:filter-changed', { detail: { scope: 'menu', key: currentFilterKey(), direction, animate } }));
 }
 
 function releasePreview() {
@@ -338,6 +352,7 @@ export function openDishEditor(dish = null) {
   $('#dish-submit').textContent = chefMode ? '保存' : '提交审核';
   setImagePreview(safeImageUrl(dish?.imageUrl), '当前图片');
   dishDialog.showModal();
+  signalBackground(dish ? 'editor-edit' : 'editor-add');
   $('#dish-name').focus();
 }
 
@@ -353,11 +368,13 @@ function openDelete(dish) {
   $('#delete-submit').textContent = chefMode ? '删除' : '提交审核';
   showError($('#delete-error'), '');
   deleteDialog.showModal();
+  signalBackground('editor-delete');
   $('[data-close="delete-dialog"]', $('#delete-form')).focus();
 }
 
 async function readImage(file) {
   if (!file) return;
+  const motion = captureBackground();
   const sequence = ++imageSequence;
   readingImage = true; imageValidationError = '';
   showError(dishError, '');
@@ -376,12 +393,14 @@ async function readImage(file) {
     previewUrl = temporaryUrl; temporaryUrl = null;
     selectedFile = normalizedFile; imageAction = 'REPLACE';
     setImagePreview(previewUrl, `${file.name} · ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+    if (dishDialog.open) motion('image');
   } catch (error) {
     if (sequence !== imageSequence) return;
     $('#dish-image').value = '';
     $('#image-caption').textContent = file.name;
     imageValidationError = error instanceof ImageValidationError ? error.message : '这张图片无法读取，请选择有效的 JPG 或 PNG 图片。';
     showError(dishError, imageValidationError);
+    if (dishDialog.open) motion('error');
   } finally {
     if (temporaryUrl) URL.revokeObjectURL(temporaryUrl);
     if (sequence === imageSequence) readingImage = false;
@@ -392,7 +411,14 @@ $('#add-dish').addEventListener('click', () => openDishEditor());
 document.addEventListener('shopping:changed', updateShoppingButtons);
 $('#clear-tag-filter').addEventListener('click', () => tagFilter?.setSelection([], true));
 document.querySelectorAll('[data-filter]').forEach(button => button.addEventListener('click', () => setFilter(button.dataset.filter)));
-$('#menu-search').addEventListener('input', renderMenu);
+menuSearch.addEventListener('input', event => {
+  renderMenu();
+  clearTimeout(searchMotionTimer);
+  if (event.isComposing) return;
+  const motion = captureBackground();
+  searchMotionTimer = setTimeout(() => motion('search'), 180);
+});
+menuSearch.addEventListener('blur', () => clearTimeout(searchMotionTimer));
 $('#dish-notes').addEventListener('input', event => { $('#notes-count').textContent = `${event.target.value.length} / 2000`; });
 document.querySelectorAll('[data-note-marker]').forEach(button => {
   button.addEventListener('mousedown', event => event.preventDefault());
@@ -404,6 +430,7 @@ document.querySelectorAll('[data-note-marker]').forEach(button => {
     notes.focus();
     notes.setSelectionRange(updated.selectionStart, updated.selectionEnd);
     notes.dispatchEvent(new Event('input', { bubbles: true }));
+    signalBackground(button.dataset.noteMarker === '//' ? 'note-step' : 'note');
   });
 });
 $('#dish-image').addEventListener('change', event => { readImage(event.target.files[0]); });
@@ -411,6 +438,7 @@ $('#remove-image').addEventListener('click', () => {
   imageSequence += 1; readingImage = false; imageValidationError = ''; releasePreview(); selectedFile = null;
   imageAction = editDish?.imageUrl ? 'REMOVE' : 'KEEP';
   $('#dish-image').value = ''; setImagePreview(null); showError(dishError, '');
+  signalBackground('image-remove');
 });
 dishDialog.addEventListener('close', () => { imageSequence += 1; readingImage = false; imageValidationError = ''; releasePreview(); });
 
@@ -439,6 +467,8 @@ dishForm.addEventListener('submit', async event => {
   const submit = $('#dish-submit');
   setDialogBusy(dishDialog, true);
   setButtonPending(submit, true, chefMode ? '保存中…' : '正在提交…');
+  const motion = captureBackground();
+  motion(chefMode ? 'saved' : 'submitted');
   try {
     const receipt = await writeApi(chefMode ? '/api/chef/dishes' : '/api/submissions', { body: form });
     dishDialog.close();
@@ -448,7 +478,10 @@ dishForm.addEventListener('submit', async event => {
       document.dispatchEvent(new CustomEvent('menu:changed'));
     } else toast('已提交，待审核', `#${receipt.id}`, 5000);
   } catch (error) {
-    if (!chefMode || !authExpired(error)) showError(dishError, error.message);
+    if (!chefMode || !authExpired(error)) {
+      showError(dishError, error.message);
+      motion('error');
+    }
   } finally { setDialogBusy(dishDialog, false); setButtonPending(submit, false); }
 });
 
@@ -461,6 +494,8 @@ $('#delete-form').addEventListener('submit', async event => {
   const submit = $('#delete-submit');
   setDialogBusy(deleteDialog, true);
   setButtonPending(submit, true, chefMode ? '删除中…' : '正在提交…');
+  const motion = captureBackground();
+  motion('deleted');
   try {
     const receipt = await writeApi(chefMode ? '/api/chef/dishes' : '/api/submissions', { body: form });
     deleteDialog.close();
@@ -471,6 +506,9 @@ $('#delete-form').addEventListener('submit', async event => {
       if (detailDishId === deleteDish.id && !$('#dish-detail-view').hidden) document.dispatchEvent(new CustomEvent('menu:detail-missing'));
     } else toast('删除申请已提交', `#${receipt.id} · 待审核`, 5000);
   } catch (error) {
-    if (!chefMode || !authExpired(error)) showError($('#delete-error'), error.message);
+    if (!chefMode || !authExpired(error)) {
+      showError($('#delete-error'), error.message);
+      motion('error');
+    }
   } finally { setDialogBusy(deleteDialog, false); setButtonPending(submit, false); }
 });

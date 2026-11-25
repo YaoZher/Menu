@@ -1,6 +1,7 @@
 import { $, element, icon, api, writeApi, safeVideoUrl, toast, loading, emptyState, setButtonPending, authExpired } from './common.js';
 import { getNoteLines, renderNoteContent } from './notes.js';
 import { OptimisticCheckQueue } from './optimistic-checks.js';
+import { captureBackground, signalBackground } from './background-motion.js';
 
 let entries = [];
 let initialized = false;
@@ -8,6 +9,7 @@ let ready = false;
 let loadingPromise = null;
 let refreshRequested = false;
 let refreshVisible = false;
+let manualRefreshFeedback = null;
 let revision = 0;
 let sessionEpoch = 0;
 let onEditDish = () => {};
@@ -31,7 +33,14 @@ export function initializeShopping(options = {}) {
   onChanged = options.onChanged || onChanged;
   if (initialized) return;
   initialized = true;
-  $('#refresh-shopping').addEventListener('click', () => loadShopping({ interactive: true }));
+  $('#refresh-shopping').addEventListener('click', refreshShopping);
+}
+
+function refreshShopping() {
+  if (refreshVisible) return;
+  manualRefreshFeedback = captureBackground();
+  manualRefreshFeedback('refresh');
+  void loadShopping({ interactive: true });
 }
 
 export function isInShopping(dishId) {
@@ -57,6 +66,7 @@ function updateEntry(updated) {
 
 function setShoppingRefreshVisible(visible) {
   refreshVisible = visible;
+  if (!visible) manualRefreshFeedback = null;
   const content = $('#shopping-content');
   content.toggleAttribute('data-page-loading', visible && ready);
   content.setAttribute('aria-busy', String(visible || (!ready && Boolean(loadingPromise))));
@@ -89,7 +99,8 @@ export async function loadShopping({ interactive = false } = {}) {
       if (epoch !== sessionEpoch) return entries;
       if (version !== revision) { refreshRequested = true; return entries; }
       if (chefMode && authExpired(error)) { refreshRequested = false; return entries; }
-      if (!ready) content.replaceChildren(emptyState({ title: '加载失败', message: error.message, actionText: '重试', action: () => loadShopping({ interactive: true }), symbol: 'refresh' }));
+      manualRefreshFeedback?.('error');
+      if (!ready) content.replaceChildren(emptyState({ title: '加载失败', message: error.message, actionText: '重试', action: refreshShopping, symbol: 'refresh' }));
       else if (refreshVisible) toast('刷新失败', error.message);
     } finally {
       if (loadingPromise === request) {
@@ -197,6 +208,7 @@ function shoppingCard(entry) {
     details.open = expanded.has(entry.id);
     const summary = element('summary');
     summary.append(element('span', '', '做法'), icon('chevron'));
+    summary.addEventListener('click', () => signalBackground(details.open ? 'recipe-close' : 'recipe'));
     details.append(summary);
     const notes = renderNoteContent({ noteLines: preparation });
     if (notes) details.append(notes);
@@ -293,6 +305,7 @@ function setChecked(entry, ingredient, checked) {
   }
   revision += 1;
   refreshCard(entry);
+  signalBackground(checked ? 'shopping-check' : 'shopping-uncheck');
   void drainChecks(entry.id, queue);
 }
 
@@ -325,6 +338,7 @@ async function reconcileEntry(entryId, queue, epoch) {
 function drainChecks(entryId, queue) {
   if (checkDrains.has(entryId)) return checkDrains.get(entryId);
   const epoch = sessionEpoch;
+  const motion = captureBackground();
   const request = Promise.resolve().then(async () => {
     try {
       while (epoch === sessionEpoch && checkQueues.get(entryId) === queue) {
@@ -347,6 +361,7 @@ function drainChecks(entryId, queue) {
           if (current) refreshCard(current);
           if (error.status === 401 || error.status === 403) { rollbackChecksBeforeLogin(error); return; }
           toast('勾选未能保存', error.message);
+          motion('error');
           if (error.status === 404 || error.status === 409) {
             try {
               await reconcileEntry(entryId, queue, epoch);
@@ -375,7 +390,9 @@ function drainChecks(entryId, queue) {
 async function removeEntry(entry) {
   if (!chefMode || busy.has(entry.id)) return;
   const epoch = sessionEpoch;
+  const motion = captureBackground();
   revision += 1; busy.add(entry.id); renderShopping();
+  motion('shopping-remove');
   try {
     // Keep an older PATCH response from recreating an item after its DELETE completes.
     await checkDrains.get(entry.id);
@@ -386,7 +403,10 @@ async function removeEntry(entry) {
     entries = entries.filter(item => item.id !== entry.id); expanded.delete(entry.id);
     changed(); toast('已移出待采购', entry.dish.name, 2500);
   } catch (error) {
-    if (epoch === sessionEpoch && !authExpired(error)) toast('移除失败', error.message);
+    if (epoch === sessionEpoch && !authExpired(error)) {
+      toast('移除失败', error.message);
+      motion('error');
+    }
   } finally {
     if (epoch === sessionEpoch) {
       busy.delete(entry.id); renderShopping();

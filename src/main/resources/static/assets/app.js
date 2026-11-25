@@ -3,7 +3,7 @@ import { initializeMenu, refreshMenu, openDishEditor, showDishDetail, updateSort
 import { initializeReviews, loadReviews } from './chef.js';
 import { initializeShopping, loadShopping, addToShopping, isInShopping, clearShoppingState } from './shopping.js';
 import { createNavigationMotion } from './navigation-motion.js';
-import { createBackgroundMotion } from './background-motion.js';
+import { createBackgroundMotion, captureBackground, signalBackground } from './background-motion.js';
 import { createInterfaceMotion, createFilterMotion } from './interface-motion.js';
 
 const views = {
@@ -24,6 +24,7 @@ const filterMotions = {
 const filterKeys = { menu: 'all', review: 'PENDING' };
 const viewOrder = ['menu', 'detail', 'shopping', 'review'];
 let activeView = 'menu';
+let activeDishId = null;
 let sessionReady = false;
 let authenticated = false;
 let initializing = false;
@@ -42,10 +43,12 @@ function showView(name, { historyMode = 'push', refresh = true, focus = true, di
   const next = views[name];
   const selectedDishId = dishId ?? Number(location.pathname.match(/^\/dish\/(\d+)/u)?.[1]);
   const path = name === 'detail' ? `/dish/${selectedDishId}` : next.path;
-  const changed = activeView !== name;
+  const previousView = activeView;
+  const changed = previousView !== name || (name === 'detail' && activeDishId !== selectedDishId);
   const direction = Math.sign(viewOrder.indexOf(name) - viewOrder.indexOf(activeView)) || 1;
   scrollPositions.set(activeView, window.scrollY);
   activeView = name;
+  activeDishId = name === 'detail' ? selectedDishId : null;
   if (historyMode === 'replace') history.replaceState({ menuView: name }, '', path);
   else if (historyMode === 'push' && location.pathname !== path) history.pushState({ menuView: name }, '', path);
   for (const [viewName, view] of Object.entries(views)) {
@@ -65,10 +68,14 @@ function showView(name, { historyMode = 'push', refresh = true, focus = true, di
   if (changed) window.scrollTo({ top: scrollPositions.get(name) || 0, behavior: 'instant' });
   if (focus) next.node.focus({ preventScroll: true });
   filterMotions[name]?.sync({ animate: false });
-  if (changed || !focus) {
-    if (focus) backgroundMotion.play({ kind: 'page', view: name, key: filterKeys[name] || 'all', direction });
-    interfaceMotion.page(next.node, { direction, initial: !focus });
+  if (focus && changed) {
+    let kind = 'page';
+    if (historyMode === 'none') kind = 'history';
+    else if (name === 'detail') kind = 'detail-open';
+    else if (previousView === 'detail') kind = 'detail-back';
+    backgroundMotion.play({ kind, view: name, key: filterKeys[name] || 'all', direction });
   }
+  if (changed || !focus) interfaceMotion.page(next.node, { direction, initial: !focus });
   if (refresh) {
     if (name === 'menu') { void refreshMenu(); void loadShopping(); }
     else if (name === 'detail') void loadShopping();
@@ -87,6 +94,7 @@ async function initializeApp() {
     session = await api('/api/session');
     if (typeof session?.authenticated !== 'boolean') throw new Error('登录状态读取失败。');
   } catch (error) {
+    signalBackground('error');
     $('#session-error').textContent = error.message;
     $('#session-status').hidden = false;
     Object.values(views).forEach(view => { view.node.hidden = true; });
@@ -124,10 +132,15 @@ async function initializeApp() {
 document.querySelectorAll('a[data-view]').forEach(link => link.addEventListener('click', event => {
   if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
   event.preventDefault();
+  if (sessionReady && activeView === link.dataset.view && activeView === 'menu') signalBackground('refresh');
   showView(link.dataset.view);
 }));
 window.addEventListener('popstate', () => showView(viewFromPath(), { historyMode: 'none' }));
-$('#retry-session').addEventListener('click', initializeApp);
+$('#retry-session').addEventListener('click', () => {
+  if (initializing) return;
+  signalBackground('refresh');
+  void initializeApp();
+});
 document.addEventListener('menu:changed', () => {
   if (activeView === 'shopping') void loadShopping();
 });
@@ -135,14 +148,18 @@ document.addEventListener('menu:open-dish', event => showView('detail', { dishId
 document.addEventListener('menu:detail-missing', () => showView('menu'));
 document.addEventListener('menu:open-menu', () => showView('menu'));
 document.addEventListener('menu:filter-changed', event => {
-  const { scope, key, direction = 1 } = event.detail;
+  const { scope, key, direction = 1, mode, animate = true } = event.detail;
   filterKeys[scope] = key;
-  filterMotions[scope]?.sync();
-  if (activeView !== scope) return;
-  backgroundMotion.play({ kind: 'filter', view: scope, key, direction });
+  filterMotions[scope]?.sync({ animate });
+  if (!animate || activeView !== scope) return;
+  const kind = scope === 'review' ? 'review-filter' : mode === 'tags' ? 'tag-filter' : 'filter';
+  backgroundMotion.play({ kind, view: scope, key, direction });
   interfaceMotion.filter(scope === 'review' ? $('#reviews-content') : $('#menu-content'), { direction });
 });
 $('#detail-back').addEventListener('click', () => showView('menu'));
+$('#menu-tag-filter-summary').addEventListener('click', event => {
+  if (!event.defaultPrevented) signalBackground($('#menu-tag-filter').open ? 'tags-close' : 'tags-open');
+});
 // Keep the shared order visible to a chef who already has the shopping page open.
 setInterval(() => {
   if (sessionReady && !document.hidden && activeView !== 'review') void loadShopping();
@@ -153,6 +170,8 @@ document.addEventListener('visibilitychange', () => {
 $('#logout').addEventListener('click', async () => {
   const button = $('#logout');
   if (button.disabled) return;
+  const motion = captureBackground();
+  signalBackground('logout');
   setButtonPending(button, true, '退出中…');
   try {
     await writeApi('/api/chef/logout');
@@ -160,7 +179,10 @@ $('#logout').addEventListener('click', async () => {
     $('#reviews-content').replaceChildren();
     location.assign('/');
   } catch (error) {
-    if (!authExpired(error)) toast('退出失败', error.message);
+    if (!authExpired(error)) {
+      motion('error');
+      toast('退出失败', error.message);
+    }
     setButtonPending(button, false);
   }
 });

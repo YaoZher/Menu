@@ -1,3 +1,5 @@
+import { signalBackground } from './background-motion.js';
+
 export const $ = (selector, root = document) => root.querySelector(selector);
 export function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -137,16 +139,23 @@ export function emptyState({ title, message, action, actionText, symbol = 'bowl'
   return node;
 }
 export function configureDialogs() {
+  const dismiss = dialog => {
+    signalBackground('editor-cancel');
+    dialog.close();
+  };
   document.querySelectorAll('[data-close]').forEach(button => button.addEventListener('click', () => {
     const dialog = document.getElementById(button.dataset.close);
-    if (!dialog.dataset.busy) dialog.close();
+    if (dialog.open && !dialog.dataset.busy) dismiss(dialog);
   }));
   document.querySelectorAll('dialog').forEach(dialog => {
-    dialog.addEventListener('cancel', event => { if (dialog.dataset.busy) event.preventDefault(); });
+    dialog.addEventListener('cancel', event => {
+      if (dialog.dataset.busy) event.preventDefault();
+      else signalBackground('editor-cancel');
+    });
     dialog.addEventListener('click', event => {
       if (event.target !== dialog || dialog.dataset.busy) return;
       const rect = dialog.getBoundingClientRect();
-      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+      if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dismiss(dialog);
     });
   });
 }

@@ -1,6 +1,7 @@
 import { $, element, icon, api, writeApi, safeVideoUrl, safeImageUrl, dateText, toast, showError, loading, emptyState, setButtonPending, setDialogBusy, authExpired } from './common.js';
 import { renderNoteContent } from './notes.js';
 import { renderTagChips } from './tags.js';
+import { captureBackground, signalBackground } from './background-motion.js';
 
 let submissions = [];
 let activeStatus = 'PENDING';
@@ -59,7 +60,10 @@ function reviewCard(submission) {
   });
   const summary = element('summary', 'review-summary');
   summary.append(element('span', 'review-name', submission.after?.name || submission.before?.name || '菜品申请'), icon('chevron', 'icon review-chevron'));
-  summary.addEventListener('click', event => { if (busyCards.has(submission.id)) event.preventDefault(); });
+  summary.addEventListener('click', event => {
+    if (busyCards.has(submission.id)) { event.preventDefault(); return; }
+    signalBackground(card.open ? 'review-close' : 'review-open');
+  });
   const details = element('div', 'review-details');
   card.append(summary, details);
   const heading = element('div', 'review-card-header');
@@ -93,6 +97,7 @@ function reviewCard(submission) {
         $('#approve-delete-name').textContent = submission.before?.name || '这道菜';
         showError($('#approve-delete-error'), '');
         deleteDialog.showModal();
+        signalBackground('editor-delete');
         $('[data-close="approve-delete-dialog"]').focus();
       } else decide(submission, 'approve', card, approve);
     });
@@ -128,9 +133,11 @@ function renderReviews() {
   content.replaceChildren(list);
 }
 
-export async function loadReviews() {
+export async function loadReviews({ manual = false } = {}) {
   if (busyCards.size) { refreshAfterDecision = true; return; }
   if (refreshing) return;
+  const motion = manual ? captureBackground() : null;
+  motion?.('refresh');
   refreshing = true;
   const revision = reviewRevision;
   const refreshButton = $('#refresh-reviews');
@@ -150,8 +157,9 @@ export async function loadReviews() {
     if (revision !== reviewRevision) { refreshAfterDecision = true; return; }
     if (authExpired(error)) return;
     content.setAttribute('aria-busy', 'false');
+    motion?.('error');
     if (reviewsLoaded) toast('刷新失败', error.message);
-    else content.replaceChildren(emptyState({ title: '加载失败', message: error.message, actionText: '重试', action: loadReviews, symbol: 'refresh' }));
+    else content.replaceChildren(emptyState({ title: '加载失败', message: error.message, actionText: '重试', action: () => loadReviews({ manual: true }), symbol: 'refresh' }));
   } finally {
     refreshing = false;
     content.removeAttribute('data-page-loading');
@@ -171,6 +179,7 @@ function flushReviewRefresh() {
 
 async function decide(submission, decision, card, button, dialog = null) {
   if (busyCards.has(submission.id)) return;
+  const motion = captureBackground();
   reviewRevision += 1;
   busyCards.set(submission.id, card);
   card.setAttribute('aria-busy', 'true');
@@ -181,6 +190,7 @@ async function decide(submission, decision, card, button, dialog = null) {
   setButtonPending(button, true, '处理中…');
   card.querySelectorAll('button, textarea').forEach(control => { control.disabled = true; });
   if (dialog) setDialogBusy(dialog, true);
+  motion(decision === 'approve' ? 'review-approve' : 'review-reject');
   try {
     const updated = await writeApi(`/api/chef/submissions/${encodeURIComponent(submission.id)}/${decision}`, { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ note: (drafts.get(submission.id) || '').trim() }) });
     reviewRevision += 1;
@@ -193,7 +203,10 @@ async function decide(submission, decision, card, button, dialog = null) {
     if (updated?.id) renderReviews(); else await loadReviews();
     document.dispatchEvent(new CustomEvent('menu:changed'));
   } catch (error) {
-    if (!authExpired(error)) showError(errorNode, error.message);
+    if (!authExpired(error)) {
+      showError(errorNode, error.message);
+      motion('error');
+    }
   } finally {
     busyCards.delete(submission.id);
     card.removeAttribute('aria-busy');
@@ -219,7 +232,7 @@ export function initializeReviews() {
     renderReviews();
     document.dispatchEvent(new CustomEvent('menu:filter-changed', { detail: { scope: 'review', key: activeStatus, direction } }));
   }));
-  $('#refresh-reviews').addEventListener('click', loadReviews);
+  $('#refresh-reviews').addEventListener('click', () => loadReviews({ manual: true }));
   $('#approve-delete-form').addEventListener('submit', event => {
     event.preventDefault();
     if (deleteApproval) decide(deleteApproval.submission, 'approve', deleteApproval.card, $('#approve-delete-submit'), deleteDialog);

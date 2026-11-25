@@ -1,4 +1,5 @@
 import { $, element, api, writeApi, toast, setButtonPending } from './common.js';
+import { captureBackground, signalBackground } from './background-motion.js';
 
 const sameOrder = (left, right) => left.length === right.length && left.every((id, index) => id === right[index]);
 
@@ -86,10 +87,11 @@ export function createMenuSorter({ isChef, getDishes, setDishes, invalidate, res
   function move(id, index) {
     const next = [...getDishes()];
     const from = next.findIndex(dish => dish.id === id);
-    if (from < 0 || index < 0 || index >= next.length || from === index) return;
+    if (from < 0 || index < 0 || index >= next.length || from === index) return false;
     next.splice(index, 0, next.splice(from, 1)[0]);
     place(next);
     announcement.textContent = `${next[index].name}，第 ${index + 1} 项，共 ${next.length} 项`;
+    return true;
   }
 
   function finishDrag(restore = false) {
@@ -100,6 +102,7 @@ export function createMenuSorter({ isChef, getDishes, setDishes, invalidate, res
     document.body.classList.remove('menu-sort-dragging');
     if (current.handle.hasPointerCapture(current.pointerId)) current.handle.releasePointerCapture(current.pointerId);
     if (restore) place(current.before);
+    else if (visible && !document.hidden && !sameOrder(ids(), current.before.map(dish => dish.id))) signalBackground('sort-move');
     if (visible && current.handle.isConnected) current.handle.focus({ preventScroll: true });
   }
 
@@ -169,7 +172,8 @@ export function createMenuSorter({ isChef, getDishes, setDishes, invalidate, res
       if (delta === undefined && event.key !== 'Home' && event.key !== 'End') return;
       event.preventDefault();
       const order = ids();
-      move(dish.id, event.key === 'Home' ? 0 : event.key === 'End' ? order.length - 1 : order.indexOf(dish.id) + delta);
+      const target = event.key === 'Home' ? 0 : event.key === 'End' ? order.length - 1 : order.indexOf(dish.id) + delta;
+      if (move(dish.id, target)) signalBackground('sort-move');
     });
     return handle;
   }
@@ -177,6 +181,8 @@ export function createMenuSorter({ isChef, getDishes, setDishes, invalidate, res
   async function begin() {
     if (!isChef || active()) return;
     mode = 'loading'; invalidate(); addWasDisabled = $('#add-dish').disabled; $('#add-dish').disabled = true; syncControls();
+    const motion = captureBackground();
+    motion('sort-start');
     try {
       let snapshot = null;
       for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -194,12 +200,15 @@ export function createMenuSorter({ isChef, getDishes, setDishes, invalidate, res
     } catch (error) {
       mode = 'off'; $('#add-dish').disabled = addWasDisabled; syncControls();
       toast('无法开启排序', error.message);
+      motion('error');
     }
   }
 
   async function save() {
     if (!editing()) return;
     finishDrag(); mode = 'saving'; syncControls();
+    const motion = captureBackground();
+    motion('sort-save');
     try {
       await writeApi('/api/chef/dishes/order', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
         dishIds: ids(), expectedDishIds: original.map(dish => dish.id), expectedRevision: revision
@@ -210,6 +219,7 @@ export function createMenuSorter({ isChef, getDishes, setDishes, invalidate, res
     } catch (error) {
       mode = 'editing'; syncControls();
       toast('排序未保存', error.status === 409 ? '菜单已发生变化，请撤销后重新开启排序。' : error.message);
+      motion('error');
     }
   }
 
@@ -218,6 +228,7 @@ export function createMenuSorter({ isChef, getDishes, setDishes, invalidate, res
     finishDrag(); const restored = [...original]; original = []; mode = 'off';
     $('#add-dish').disabled = addWasDisabled; syncControls(); place(restored);
     announcement.textContent = '已撤销排序'; toggle.focus({ preventScroll: true });
+    signalBackground('sort-cancel');
     refresh();
   }
 

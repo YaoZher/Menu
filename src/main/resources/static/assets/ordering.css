@@ -1,6 +1,5 @@
 /* Open, line-separated menu rows with a quiet plate-inspired background. */
 .menu-page { min-height: 100dvh; isolation: isolate; }
-.menu-backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
 .menu-backdrop-rings { position: absolute; width: 1100px; height: 1100px; max-width: none; color: #628569; opacity: .17; }
 .menu-backdrop-rings:first-child { top: -540px; right: -540px; }
 .menu-backdrop-rings:last-child { bottom: -750px; left: -660px; width: 1300px; height: 1300px; opacity: .12; }

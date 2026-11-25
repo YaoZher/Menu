@@ -1,5 +1,13 @@
 /* Soft material accents and broad plate arcs behind the working surface. */
-.menu-backdrop-expressive { contain: paint; }
+.login-page { min-height: 100dvh; isolation: isolate; }
+.menu-backdrop-expressive {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  contain: paint;
+}
 .menu-backdrop-glow {
   position: absolute;
   inset: -12%;
