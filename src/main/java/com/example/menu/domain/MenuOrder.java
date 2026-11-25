@@ -13,6 +13,7 @@ public class MenuOrder {
 
     @Id private Long id;
     @Lob @Column(name = "ordered_ids") private String orderedIds;
+    //注释:@Lob 表示该字段将被映射为数据库中的大对象（Large Object），通常用于存储大量文本或二进制数据。
     @Column(nullable = false) private long revision;
     @Version @Column(name = "lock_version", nullable = false) private long lockVersion;
 
